@@ -1,0 +1,23 @@
+name: secmail_pubkey_sdk
+description: High-level Dart SDK for the scomm-ai pubkey server API (dio). Uses secmail_crypto_sdk for signing and blobs.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  crypto: ^3.0.7
+  dio: ^5.7.0
+  secmail_crypto_sdk:
+    path: ../../fl-start/crypto
+  secmail_crypto_flutter:
+    path: ../../fl-start/crypto/packages/secmail_crypto_flutter
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
