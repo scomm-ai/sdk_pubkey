@@ -20,11 +20,11 @@ dart run --define=PUBKEY_READ_BASE_URL=http://localhost:3001 \
 ## Quick start
 
 ```dart
-import 'package:secmail_crypto_flutter/secmail_crypto_flutter.dart';
+import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 
 Future<void> main() async {
-  final crypto = SecmailCryptoFlutter.initialize();
+  final crypto = CryptoSdk.initialize();
   final pubkey = PubkeyClient(crypto: crypto);
 
   final check = await pubkey.checkAccount('alice@example.com');
@@ -37,9 +37,10 @@ Future<void> main() async {
 
 ## Layout
 
-- `PubkeyReadClient` — read host only (GET)
-- `PubkeyWriteClient` — write host (POST, PATCH, …)
-- `PubkeyClient` — facade (OTP, upload helpers, list keys)
+- `PubkeyReadClient` — read host (GET, blob fetch, recoverable list)
+- `PubkeyWriteClient` — write host (OTP, upload, rotate, lifecycle)
+- `PubkeyClient` — facade (orchestration, session wiring, upload helpers)
+- `SignedRequestExecutor` — generic signed PATCH/POST/DELETE
 
 ## Related repo
 

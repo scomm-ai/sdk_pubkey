@@ -11,8 +11,6 @@ dependencies:
   dio: ^5.7.0
   secmail_crypto_sdk:
     path: ../../fl-start/crypto
-  secmail_crypto_flutter:
-    path: ../../fl-start/crypto/packages/secmail_crypto_flutter
   uuid: ^4.5.1
 
 dev_dependencies:

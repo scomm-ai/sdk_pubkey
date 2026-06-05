@@ -1,18 +1,30 @@
 import 'package:dio/dio.dart';
+import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
 
 import '../exceptions/pubkey_api_exception.dart';
 import '../http/pubkey_http.dart';
+import '../http/signed_request_executor.dart';
 import '../models/account_check.dart';
 import '../models/key_list_item.dart';
 import '../auth/pubkey_session.dart';
 import '../auth/signed_request_builder.dart';
-import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
 
 /// GET-only client for the read deploy (`pubkey.scomm.ai`).
 class PubkeyReadClient {
-  PubkeyReadClient({Dio? dio}) : _dio = dio ?? createReadDio();
+  PubkeyReadClient({
+    Dio? dio,
+    SignedRequestBuilder? signedRequestBuilder,
+  })  : _dio = dio ?? createReadDio(),
+        _signed = SignedRequestExecutor(
+          dio: dio ?? createReadDio(),
+          builder: signedRequestBuilder ??
+              SignedRequestBuilder(
+                payloadSigner: PubkeyPayloadSigner(CryptoSdk.initialize()),
+              ),
+        );
 
   final Dio _dio;
+  final SignedRequestExecutor _signed;
 
   Future<Map<String, dynamic>> health() => _getJson('/health');
 
@@ -88,14 +100,63 @@ class PubkeyReadClient {
         .toList();
   }
 
+  Future<Map<String, dynamic>> getBlob({
+    required PubkeySession session,
+    required String keyId,
+    CryptoKey? signingPrivateKey,
+    String? passphrase,
+  }) async {
+    final path = '/keys/blob/$keyId';
+    if (session.hasFetchToken) {
+      return _getJson(
+        path,
+        extraHeaders: {
+          'Authorization': 'FetchToken ${session.fetchToken}',
+        },
+      );
+    }
+    if (signingPrivateKey == null) {
+      throw ArgumentError(
+        'signingPrivateKey required when session has no fetchToken',
+      );
+    }
+    return _signed.requestJson(
+      session: session,
+      method: 'GET',
+      path: path,
+      signingPrivateKey: signingPrivateKey,
+      passphrase: passphrase,
+    );
+  }
+
+  Future<List<KeyListItem>> listRecoverableKeys({
+    required PubkeySession session,
+  }) async {
+    if (!session.hasFetchToken) {
+      throw ArgumentError('session.fetchToken is required');
+    }
+    final data = await _getJson(
+      '/auth/bootstrap/recoverable',
+      extraHeaders: {
+        'Authorization': 'FetchToken ${session.fetchToken}',
+      },
+    );
+    final keys = data['keys'] as List<dynamic>? ?? [];
+    return keys
+        .map((e) => KeyListItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
   Future<Map<String, dynamic>> _getJson(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Map<String, String>? extraHeaders,
   }) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         path,
         queryParameters: queryParameters,
+        options: Options(headers: extraHeaders),
       );
       _throwIfError(response);
       return response.data ?? {};

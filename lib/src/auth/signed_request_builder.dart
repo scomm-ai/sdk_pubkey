@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
 import 'package:uuid/uuid.dart';
 
@@ -42,9 +40,9 @@ class SignedRequestBuilder {
     };
 
     final payloadB64 = encodeJsonBase64Url(payloadMap);
-    final payloadString = jsonEncode(payloadMap);
-    final signatureB64 = await _payloadSigner.signPayloadString(
-      payloadString: payloadString,
+    // Server verifies the signature over the raw X-Auth-Payload header value.
+    final signatureB64 = await _payloadSigner.signAuthHeaderPayload(
+      payloadB64: payloadB64,
       signingPrivateKey: signingPrivateKey,
       sigFamily: sigFamily,
       passphrase: passphrase,

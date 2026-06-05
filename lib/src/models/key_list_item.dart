@@ -16,7 +16,7 @@ class KeyListItem {
     return KeyListItem(
       keyId: json['keyId'] as String,
       algorithm: json['algorithm'] as String,
-      status: json['status'] as String,
+      status: json['status'] as String? ?? 'deleted',
       isPreferred: json['isPreferred'] as bool? ?? false,
       discoverable: json['discoverable'] as bool? ?? false,
       hasRecoveryPhrase: json['hasRecoveryPhrase'] as bool? ?? false,
