@@ -10,7 +10,10 @@ dependencies:
   crypto: ^3.0.7
   dio: ^5.7.0
   secmail_crypto_sdk:
-    path: ../../fl-start/crypto
+    # path: ../../fl-start/crypto
+    git:
+      url: https://github.com/fl-start/crypto.git
+      ref: main
   uuid: ^4.5.1
 
 dev_dependencies:
