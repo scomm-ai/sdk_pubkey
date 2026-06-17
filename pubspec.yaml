@@ -14,7 +14,7 @@ dependencies:
     # path: ../../fl-start/crypto
     git:
       url: https://github.com/fl-start/crypto.git
-      ref: main
+      ref: afb7b7a704e01152f6ccb75639e8bedffa3aecfb
   uuid: ^4.5.1
 
 dev_dependencies:
