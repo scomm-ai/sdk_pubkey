@@ -9,6 +9,8 @@ export 'src/client/pubkey_read_client.dart';
 export 'src/client/pubkey_write_client.dart';
 export 'src/config/pubkey_config.dart';
 export 'src/exceptions/pubkey_api_exception.dart';
+export 'src/http/pubkey_http.dart';
 export 'src/http/signed_request_executor.dart';
 export 'src/models/account_check.dart';
 export 'src/models/key_list_item.dart';
+export 'src/models/preference_batch_entry.dart';

@@ -1,16 +1,12 @@
 import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
 import 'package:uuid/uuid.dart';
-
-import '../http/pubkey_http.dart';
 import 'pubkey_session.dart';
 
 /// Builds `X-Auth-Payload` and `X-Auth-Signature` for pubkey signed requests.
 class SignedRequestBuilder {
-  SignedRequestBuilder({
-    required PubkeyPayloadSigner payloadSigner,
-    Uuid? uuid,
-  })  : _payloadSigner = payloadSigner,
-        _uuid = uuid ?? const Uuid();
+  SignedRequestBuilder({required PubkeyPayloadSigner payloadSigner, Uuid? uuid})
+    : _payloadSigner = payloadSigner,
+      _uuid = uuid ?? const Uuid();
 
   final PubkeyPayloadSigner _payloadSigner;
   final Uuid _uuid;
@@ -48,9 +44,6 @@ class SignedRequestBuilder {
       passphrase: passphrase,
     );
 
-    return {
-      'X-Auth-Payload': payloadB64,
-      'X-Auth-Signature': signatureB64,
-    };
+    return {'X-Auth-Payload': payloadB64, 'X-Auth-Signature': signatureB64};
   }
 }

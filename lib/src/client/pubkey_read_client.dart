@@ -6,6 +6,7 @@ import '../http/pubkey_http.dart';
 import '../http/signed_request_executor.dart';
 import '../models/account_check.dart';
 import '../models/key_list_item.dart';
+import '../models/preference_batch_entry.dart';
 import '../auth/pubkey_session.dart';
 import '../auth/signed_request_builder.dart';
 
@@ -47,6 +48,26 @@ class PubkeyReadClient {
         if (usage != null) 'usage': usage,
       },
     );
+  }
+
+  Future<List<PreferenceBatchEntry>> getPreferenceBatch({
+    required List<String> emails,
+  }) async {
+    if (emails.isEmpty || emails.length > 50) {
+      throw ArgumentError('Between 1 and 50 emails required');
+    }
+    final data = await _getJson(
+      '/keys/preference',
+      queryParameters: {'emails': emails.join(',')},
+    );
+    final list = data['results'] as List<dynamic>? ?? [];
+    return list
+        .map(
+          (e) => PreferenceBatchEntry.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
+        .toList();
   }
 
   Future<Map<String, dynamic>> getRevoked({
