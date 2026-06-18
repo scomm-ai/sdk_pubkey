@@ -144,6 +144,8 @@ class PubkeyClient {
     bool hasRecoveryPhrase = false,
     String? passphrase,
     bool useSignedAuth = false,
+    CryptoKey? httpSigningPrivateKey,
+    String? httpPassphrase,
   }) async {
     final session = _requireSession();
     final catalog = await PubkeyKeyMapper.catalogNameForPublicKey(
@@ -178,6 +180,8 @@ class PubkeyClient {
         hasRecoveryPhrase: hasRecoveryPhrase,
         passphrase: passphrase,
         useSignedAuth: useSignedAuth,
+        httpSigningPrivateKey: httpSigningPrivateKey,
+        httpPassphrase: httpPassphrase,
       );
     }
 
@@ -192,6 +196,8 @@ class PubkeyClient {
       hasRecoveryPhrase: hasRecoveryPhrase,
       passphrase: passphrase,
       useSignedAuth: useSignedAuth,
+      httpSigningPrivateKey: httpSigningPrivateKey,
+      httpPassphrase: httpPassphrase,
     );
   }
 
@@ -207,6 +213,8 @@ class PubkeyClient {
     bool hasRecoveryPhrase = false,
     String? passphrase,
     bool useSignedAuth = false,
+    CryptoKey? httpSigningPrivateKey,
+    String? httpPassphrase,
   }) async {
     final session = _requireSession();
     final payload = newUploadPayload(
@@ -226,6 +234,11 @@ class PubkeyClient {
       passphrase: passphrase,
     );
 
+    final authKey = httpSigningPrivateKey ?? signingPrivateKey;
+    final authPassphrase = httpSigningPrivateKey != null
+        ? httpPassphrase
+        : passphrase;
+
     final Map<String, dynamic> result;
     if (useSignedAuth || !session.hasFetchToken) {
       final signedSession = session.sigFamily != null
@@ -235,8 +248,8 @@ class PubkeyClient {
         session: signedSession,
         payloadJson: payloadJson,
         signatureBase64: signature,
-        signingPrivateKey: signingPrivateKey,
-        passphrase: passphrase,
+        signingPrivateKey: authKey,
+        passphrase: authPassphrase,
       );
     } else {
       result = await write.uploadKeyWithFetchToken(
@@ -263,8 +276,14 @@ class PubkeyClient {
     bool hasRecoveryPhrase = false,
     String? passphrase,
     bool useSignedAuth = false,
+    CryptoKey? httpSigningPrivateKey,
+    String? httpPassphrase,
   }) async {
     final session = _requireSession();
+    final authKey = httpSigningPrivateKey ?? keyPair.privateKey;
+    final authPassphrase = httpSigningPrivateKey != null
+        ? httpPassphrase
+        : passphrase;
     final challengeBody = {
       'email': session.email,
       'algorithm': algorithm,
@@ -277,9 +296,9 @@ class PubkeyClient {
       session: session,
       body: challengeBody,
       signingPrivateKey: useSignedAuth || !session.hasFetchToken
-          ? keyPair.privateKey
+          ? authKey
           : null,
-      passphrase: passphrase,
+      passphrase: authPassphrase,
     );
 
     final challengeResponse =
@@ -312,8 +331,8 @@ class PubkeyClient {
         signatureBase64: '',
         proofType: 'decrypt_challenge',
         challengeResponse: challengeResponse,
-        signingPrivateKey: keyPair.privateKey,
-        passphrase: passphrase,
+        signingPrivateKey: authKey,
+        passphrase: authPassphrase,
       );
     } else {
       result = await write.uploadKeyWithFetchToken(

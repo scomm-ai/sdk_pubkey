@@ -22,7 +22,7 @@ PubkeyApiException mapDioError(DioException e) {
 }
 
 Dio createPubkeyDio(String baseUrl) {
-  return Dio(
+  final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
@@ -31,6 +31,33 @@ Dio createPubkeyDio(String baseUrl) {
       validateStatus: (status) => status != null && status < 500,
     ),
   );
+
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onError: (error, handler) async {
+        final options = error.requestOptions;
+        final retryCount = options.extra['pubkeyRetryCount'] as int? ?? 0;
+        final shouldRetry = retryCount < 1 &&
+            (error.type == DioExceptionType.connectionTimeout ||
+                error.type == DioExceptionType.receiveTimeout ||
+                error.type == DioExceptionType.connectionError ||
+                error.response?.statusCode == 429);
+        if (!shouldRetry) {
+          return handler.next(error);
+        }
+        options.extra['pubkeyRetryCount'] = retryCount + 1;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        try {
+          final response = await dio.fetch<dynamic>(options);
+          return handler.resolve(response);
+        } catch (e) {
+          return handler.next(error);
+        }
+      },
+    ),
+  );
+
+  return dio;
 }
 
 Dio createReadDio() => createPubkeyDio(PubkeyConfig.readBaseUrl);
