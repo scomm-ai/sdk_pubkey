@@ -1,3 +1,6 @@
+import '../constants.dart';
+import '../registry.dart';
+
 /// Parsed Discovery Document (core schema 1.0).
 ///
 /// Unknown optional fields and extensions are preserved in [raw].
@@ -51,6 +54,57 @@ class DiscoveryDocument {
       for (final k in keys)
         if (k is Map) Map<String, dynamic>.from(k),
     ];
+  }
+
+  /// Project [encryptionKeys] into the artifact shape expected by
+  /// [selectBestArtifact] (`family` pgp|smime, catalog `algorithm`,
+  /// `public_material`). Keys missing algorithm or public material are skipped.
+  List<Map<String, dynamic>> encryptionArtifactsForSelection() {
+    final out = <Map<String, dynamic>>[];
+    var index = 0;
+    for (final key in encryptionKeys()) {
+      final familyRaw = key['family']?.toString() ?? '';
+      final family = familyRaw == 'openpgp' ? Families.pgp : familyRaw;
+      if (family != Families.pgp && family != Families.smime) continue;
+      final algorithms = key['algorithms'];
+      final algorithm = algorithms is List && algorithms.isNotEmpty
+          ? algorithms.first.toString()
+          : null;
+      if (algorithm == null || algorithm.isEmpty) continue;
+      final material = key['publicKey']?.toString();
+      if (material == null || material.isEmpty) continue;
+      out.add({
+        'family': family,
+        'algorithm': algorithm,
+        'purpose': Purposes.encryption,
+        'status': 'active',
+        // Discovery Documents publish opaque keyId strings; use index only for
+        // stable ranking among equal family/algorithm preference.
+        'key_id': index++,
+        'published_key_id': key['keyId'],
+        'public_material': material,
+      });
+    }
+    return out;
+  }
+
+  /// Pick one encryption key mutually supported by [capabilities]
+  /// (`{ "families": { "pgp": [...], "smime": [...] } }`).
+  ///
+  /// Uses the same ranking as server `GET /v1/keys` (PQC over classical,
+  /// smime over pgp, then higher synthetic key_id). Returns null when the
+  /// document has no usable encryption keys or no intersection with the
+  /// caller's advertised algorithms.
+  Map<String, dynamic>? selectBestEncryptionKey(
+    Map<String, dynamic> capabilities, [
+    Map<String, dynamic>? preferences,
+  ]) {
+    return selectBestArtifact(
+      encryptionArtifactsForSelection(),
+      capabilities,
+      preferences,
+      Purposes.encryption,
+    );
   }
 
   List<Map<String, dynamic>> verificationKeys() {

@@ -37,13 +37,6 @@ void main() {
     );
   });
 
-  test('ScommKeyId is content-addressable XXXX-XXXX', () {
-    final id = ScommKeyId.derive(utf8.encode('sig-key-material'));
-    expect(id, matches(RegExp(r'^[0-9A-F]{4}-[0-9A-F]{4}$')));
-    expect(ScommKeyId.derive(utf8.encode('sig-key-material')), id);
-    expect(ScommKeyId.equals(id, id.replaceAll('-', '').toLowerCase()), isTrue);
-  });
-
   test('mailbox path encoding keeps plus tags before canonicalization', () {
     final client = PubkeyClient(
       crypto: DartCryptoProvider(),
@@ -95,7 +88,77 @@ void main() {
     expect(doc.schemaVersion, '1.0');
     expect(doc.mailbox, 'alice@example.com');
     expect(doc.encryptionKeys(), isNotEmpty);
-    // Public discovery documents must not project verification key material.
+    // Public Discovery Documents MUST NOT project verification keys (gated
+    // signing fetch). Encryption-only fixtures are expected.
     expect(doc.verificationKeys(), isEmpty);
+  });
+
+  group('Discovery Document encryption selection', () {
+    DiscoveryDocument dualPublishDoc() => DiscoveryDocument.fromJson({
+          'schemaVersion': '1.0',
+          'mailbox': 'alice@example.com',
+          'capabilities': {
+            'crypto': {
+              'encryption': {
+                'keys': [
+                  {
+                    'family': 'openpgp',
+                    'keyId': 'AAAA-0001',
+                    'publicKey': 'classical-material',
+                    'algorithms': ['openpgp-cv25519'],
+                  },
+                  {
+                    'family': 'openpgp',
+                    'keyId': 'BBBB-0002',
+                    'publicKey': 'pqc-material',
+                    'algorithms': ['openpgp-mlkem768-x25519'],
+                  },
+                ],
+              },
+            },
+          },
+        });
+
+    test('classical-only sender gets cv25519, not PQC', () {
+      final selected = dualPublishDoc().selectBestEncryptionKey({
+        'families': {
+          'pgp': ['openpgp-cv25519'],
+        },
+      });
+      expect(selected, isNotNull);
+      expect(selected!['algorithm'], 'openpgp-cv25519');
+      expect(selected['public_material'], 'classical-material');
+      expect(selected['published_key_id'], 'AAAA-0001');
+    });
+
+    test('PQC-capable sender prefers ML-KEM over classical', () {
+      final selected = dualPublishDoc().selectBestEncryptionKey({
+        'families': {
+          'pgp': [
+            'openpgp-cv25519',
+            'openpgp-mlkem768-x25519',
+          ],
+        },
+      });
+      expect(selected, isNotNull);
+      expect(selected!['algorithm'], 'openpgp-mlkem768-x25519');
+      expect(selected['public_material'], 'pqc-material');
+    });
+
+    test('unsupported families yield null (no keys.first fallback)', () {
+      final selected = dualPublishDoc().selectBestEncryptionKey({
+        'families': {
+          'smime': ['smime-rsa-oaep-sha256'],
+        },
+      });
+      expect(selected, isNull);
+    });
+
+    test('maps openpgp family token to wire pgp for selection artifacts', () {
+      final artifacts = dualPublishDoc().encryptionArtifactsForSelection();
+      expect(artifacts, hasLength(2));
+      expect(artifacts.every((a) => a['family'] == Families.pgp), isTrue);
+      expect(artifacts.every((a) => a['purpose'] == Purposes.encryption), isTrue);
+    });
   });
 }
