@@ -1,16 +1,36 @@
-/// SecMail pubkey server SDK (HTTP). Crypto primitives come from [secmail_crypto_sdk].
+/// SComm pubkey protocol adapter (HTTP, enrollment, Vault) over CKVF.
 library;
 
-export 'src/auth/pubkey_session.dart';
-export 'src/auth/pubkey_session_wiring.dart';
-export 'src/auth/signed_request_builder.dart';
+export 'src/canonical.dart';
 export 'src/client/pubkey_client.dart';
-export 'src/client/pubkey_read_client.dart';
-export 'src/client/pubkey_write_client.dart';
 export 'src/config/pubkey_config.dart';
-export 'src/exceptions/pubkey_api_exception.dart';
-export 'src/http/pubkey_http.dart';
-export 'src/http/signed_request_executor.dart';
-export 'src/models/account_check.dart';
-export 'src/models/key_list_item.dart';
-export 'src/models/preference_batch_entry.dart';
+export 'src/constants.dart';
+export 'src/device.dart';
+export 'src/crypto/capabilities.dart';
+export 'src/crypto/dart_crypto.dart';
+export 'src/crypto/native_provider.dart';
+export 'src/crypto/provider.dart';
+export 'src/crypto/registry.dart';
+export 'src/engines/openpgp_rfc9980.dart';
+export 'src/engines/pgp.dart';
+export 'src/engines/smime.dart';
+export 'src/errors.dart';
+export 'src/identity.dart';
+export 'src/jcs.dart';
+export 'src/locator.dart';
+export 'src/registry.dart';
+// `createPubkeyRuntime`/`createPubkeyClient`/`createDiscoveryPubkeyClient`
+// are intentionally hidden here: host apps (e.g. secMail10) define their own
+// same-named wrappers supplying app-specific storage/URLs, and a file that
+// imports both this barrel and such a wrapper would otherwise get an
+// ambiguous-import error. Standalone consumers (tests, a demo app) that want
+// the package's own defaults should import
+// 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart' directly.
+export 'src/runtime/pubkey_runtime.dart'
+    hide createPubkeyRuntime, createPubkeyClient, createDiscoveryPubkeyClient;
+export 'src/vault/device_pairing.dart';
+export 'src/vault/key_hierarchy.dart';
+export 'src/vault/recovery_code.dart';
+export 'src/vault/store.dart';
+export 'src/vault/vault.dart';
+export 'src/vault/vault_export.dart';

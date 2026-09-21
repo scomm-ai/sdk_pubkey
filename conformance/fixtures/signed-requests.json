@@ -1,0 +1,36 @@
+{
+	"description": "Canonical signed-request bytes. Signature is Ed25519 over UTF-8 canonical text. Test keys are insecure fixtures.",
+	"insecure_test_material": true,
+	"algorithm": "ed25519",
+	"msk": {
+		"public_key_base64url": "Ei_Ps8ZkAALwDQIAJocCfSXnaNRdRU_QycTvC-IgpK4",
+		"public_key_hex": "122fcfb3c6640002f00d02002687027d25e768d45d454fd0c9c4ef0be220a4ae",
+		"private_key_hex": "83e261d9dc76ffa25bf0a1e421506c9b844d724ec0b88844be00833c28403193"
+	},
+	"vectors": [
+		{
+			"id": "set-keys-pgp-cv25519",
+			"envelope": {
+				"protocol_version": 1,
+				"operation": "set_keys",
+				"principal": "9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976",
+				"timestamp": 1780000000000,
+				"nonce": "AAAAAAAAAAAAAAAAAAAAAA",
+				"payload": {
+					"artifacts": [
+						{
+							"family": "pgp",
+							"purpose": "encryption",
+							"algorithm": "openpgp-cv25519",
+							"public_material": "dGVzdC1wdWJrZXk"
+						}
+					]
+				}
+			},
+			"payload_jcs": "{\"artifacts\":[{\"algorithm\":\"openpgp-cv25519\",\"family\":\"pgp\",\"public_material\":\"dGVzdC1wdWJrZXk\",\"purpose\":\"encryption\"}]}",
+			"payload_sha256": "b9582e0f5634d0e3e124955ca86243de4a7aa24a4109c8067b7f2409270b8ee0",
+			"canonical_utf8": "SComm/Pubkey/1/set_keys\nprincipal=9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976\ntimestamp=1780000000000\nnonce=AAAAAAAAAAAAAAAAAAAAAA\npayload_sha256=b9582e0f5634d0e3e124955ca86243de4a7aa24a4109c8067b7f2409270b8ee0\n",
+			"signature_base64url": "jbep_LLKGjrdZS8djFimkAtHuRjPfPuqdOeH3UyUWZCttJ56_tX8JvzyaejV8piAzUohhPtHV8hQF4zJu2xdAw"
+		}
+	]
+}

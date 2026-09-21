@@ -1,0 +1,23 @@
+{
+  "description": "Canonical DeviceAuthorization and enrollment QR payloads",
+  "authorization": {
+    "version": 1,
+    "principal_id": "018f0000-0000-8000-8000-000000000001",
+    "device_id": "08971485-6ee2-83b3-902a-591d0d5f2925",
+    "device_public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "device_key_algorithm": "ed25519",
+    "created_at": 1700000000000,
+    "nonce": "nonce1"
+  },
+  "qr": {
+    "version": 1,
+    "session_id": "sess-1",
+    "device_id": "57c07f44-f6e9-8e28-810d-a8e5fc667ecb",
+    "device_public_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "ephemeral_public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "kem": "x25519",
+    "expiry": 1700000300000,
+    "commitment": "dddd",
+    "rendezvous": {}
+  }
+}

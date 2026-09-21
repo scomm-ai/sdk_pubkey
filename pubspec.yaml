@@ -1,25 +1,23 @@
 name: secmail_pubkey_sdk
-description: High-level Dart SDK for the scomm-ai pubkey server API (dio). Uses secmail_crypto_sdk for signing and blobs.
-version: 0.1.0
+description: SComm pubkey protocol adapter over the CKVF Dart SDK.
+version: 1.2.0
 publish_to: none
 
 environment:
-  sdk: ">=3.9.0 <4.0.0"
+  sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
-  crypto: ^3.0.7
-  dio: ^5.7.0
-  secmail_crypto_sdk:
-    # path: ../crypto
-    # path: ../../fl-start/crypto
+  ckvf:
     git:
-      url: https://github.com/fl-start/crypto.git
-      ref: afb7b7a704e01152f6ccb75639e8bedffa3aecfb
-  uuid: ^4.5.1
+      url: https://github.com/Cryptographic-Key-Vault-Format/ckvf-sdks.git
+      path: packages/dart
+      ref: 31e73688719fdf38730797722c50814d37bd2458
+  crypto: ^3.0.6
+  cryptography: ^2.7.0
+  dio: ^5.7.0
+  ristretto255: ^1.0.2
+  unorm_dart: ^0.3.0
 
 dev_dependencies:
-  flutter:
-    sdk: flutter
-  flutter_test:
-    sdk: flutter
   lints: ^6.0.0
+  test: ^1.25.0

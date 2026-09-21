@@ -1,0 +1,212 @@
+{
+	"description": "Server selects one artifact from the intersection of caller capabilities and recipient inventory. Families are pgp and smime only. PQ-named algorithms rank above classical inside a family.",
+	"cases": [
+		{
+			"id": "smime-mlkem-preferred-and-supported",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519"],
+					"smime": ["smime-mlkem-768", "smime-x25519"]
+				}
+			},
+			"preferences": {
+				"preferred_family": "smime",
+				"preferred_algorithm": "smime-mlkem-768"
+			},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				},
+				{
+					"key_id": 3,
+					"family": "smime",
+					"algorithm": "smime-mlkem-768",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 3,
+				"family": "smime",
+				"algorithm": "smime-mlkem-768"
+			}
+		},
+		{
+			"id": "legacy-pgp-only-sender",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519"]
+				}
+			},
+			"preferences": {
+				"preferred_family": "smime",
+				"preferred_algorithm": "smime-mlkem-768"
+			},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				},
+				{
+					"key_id": 3,
+					"family": "smime",
+					"algorithm": "smime-mlkem-768",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 1,
+				"family": "pgp",
+				"algorithm": "openpgp-cv25519"
+			}
+		},
+		{
+			"id": "pq-family-ignored",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519"],
+					"pq": ["pqc-mlkem-768"]
+				}
+			},
+			"preferences": {},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				},
+				{
+					"key_id": 3,
+					"family": "pq",
+					"algorithm": "pqc-mlkem-768",
+					"purpose": "kem",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 1,
+				"family": "pgp",
+				"algorithm": "openpgp-cv25519"
+			}
+		},
+		{
+			"id": "retired-not-selected",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519", "openpgp-cv448"]
+				}
+			},
+			"preferences": {},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "retired"
+				},
+				{
+					"key_id": 2,
+					"family": "pgp",
+					"algorithm": "openpgp-cv448",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 2,
+				"family": "pgp",
+				"algorithm": "openpgp-cv448"
+			}
+		},
+		{
+			"id": "no-intersection",
+			"capabilities": {
+				"families": {
+					"smime": ["smime-x25519"]
+				}
+			},
+			"preferences": {},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": null
+		},
+		{
+			"id": "openpgp-pqc-when-sender-advertises",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519", "openpgp-mlkem768-x25519"]
+				}
+			},
+			"preferences": {},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				},
+				{
+					"key_id": 4,
+					"family": "pgp",
+					"algorithm": "openpgp-mlkem768-x25519",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 4,
+				"family": "pgp",
+				"algorithm": "openpgp-mlkem768-x25519"
+			}
+		},
+		{
+			"id": "openpgp-classical-when-sender-has-no-pqc",
+			"capabilities": {
+				"families": {
+					"pgp": ["openpgp-cv25519"]
+				}
+			},
+			"preferences": {},
+			"artifacts": [
+				{
+					"key_id": 1,
+					"family": "pgp",
+					"algorithm": "openpgp-cv25519",
+					"purpose": "encryption",
+					"status": "active"
+				},
+				{
+					"key_id": 4,
+					"family": "pgp",
+					"algorithm": "openpgp-mlkem768-x25519",
+					"purpose": "encryption",
+					"status": "active"
+				}
+			],
+			"expected": {
+				"key_id": 1,
+				"family": "pgp",
+				"algorithm": "openpgp-cv25519"
+			}
+		}
+	]
+}

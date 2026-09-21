@@ -1,47 +1,34 @@
 # secmail_pubkey_sdk
 
-High-level Dart SDK for the [scomm-ai/pubkey](https://github.com/scomm-ai/pubkey) server API.
+SComm Dart pubkey protocol adapter (HTTP, enrollment, OTP, Vault wrap) over
+[`ckvf`](https://github.com/Cryptographic-Key-Vault-Format/ckvf-sdks/tree/main/packages/dart).
 
-Cryptographic operations (sign, encrypt, keygen) are delegated to **`secmail_crypto_sdk`** (`../../fl-start/crypto`). This package owns all **dio** HTTP traffic.
+This package is not published on pub.dev. Consume it from Git:
 
-## Hosts (compile-time)
-
-| Define | Default | Server role |
-|--------|---------|-------------|
-| `PUBKEY_READ_BASE_URL` | `https://pubkey.scomm.ai` | `npm run start:read` (GET) |
-| `PUBKEY_WRITE_BASE_URL` | `https://api.pubkey.scomm.ai` | `npm run start:write` (POST/…) |
-
-```bash
-dart run --define=PUBKEY_READ_BASE_URL=http://localhost:3001 \
-         --define=PUBKEY_WRITE_BASE_URL=http://localhost:3002 \
-         example/health_check.dart
+```yaml
+secmail_pubkey_sdk:
+  git:
+    url: https://github.com/scomm-ai/sdk_pubkey.git
+    ref: <full-sha>
 ```
 
-## Quick start
+## Hosts
 
-```dart
-import 'package:secmail_crypto_sdk/secmail_crypto_sdk.dart';
-import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
+Missing dart-defines resolve to empty strings. Callers must supply
+`PUBKEY_READ_BASE_URL` and `PUBKEY_WRITE_BASE_URL` (or pass URLs into
+`createPubkeyRuntime` / `createDiscoveryPubkeyClient`). There is no silent
+fallback to a production host.
 
-Future<void> main() async {
-  final crypto = CryptoSdk.initialize();
-  final pubkey = PubkeyClient(crypto: crypto);
+Scripted tests pass explicit URLs. Host apps should pass the same arguments
+into `createPubkeyRuntime` / `createDiscoveryPubkeyClient`.
 
-  final check = await pubkey.checkAccount('alice@example.com');
-  print(check.known);
-
-  await pubkey.sendOtp('alice@example.com');
-  await pubkey.verifyOtp(email: 'alice@example.com', otp: '123456');
-}
+```bash
+dart test
 ```
 
 ## Layout
 
-- `PubkeyReadClient` — read host (GET, blob fetch, recoverable list)
-- `PubkeyWriteClient` — write host (OTP, upload, rotate, lifecycle)
-- `PubkeyClient` — facade (orchestration, session wiring, upload helpers)
-- `SignedRequestExecutor` — generic signed PATCH/POST/DELETE
-
-## Related repo
-
-See `ARCHITECTURE.md` in `fl-start/crypto`.
+- `PubkeyClient` — directory HTTP, enrollment, Vault sync
+- `PubkeyRuntime` — per-account runtime over a `VaultStore`
+- `Vault` / device pairing / recovery code — local key hierarchy
+- OpenPGP and S/MIME engines — protocol adapters used by the host app

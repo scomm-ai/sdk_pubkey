@@ -1,0 +1,30 @@
+{
+	"description": "Public-key encodings at the protocol boundary. Standards-native encodings are used; SComm does not invent representations.",
+	"msk": {
+		"algorithm": "ed25519",
+		"encoding": "raw-32-byte-public-key",
+		"wire": "base64url-unpadded",
+		"fingerprint": "sha256 of the 32-byte public key, hex lowercase"
+	},
+	"families": {
+		"pgp": {
+			"material": "OpenPGP transferable public key",
+			"wire": "base64url of binary packets (not ASCII armor on the wire)"
+		},
+		"smime": {
+			"material": "X.509 / CMS SubjectPublicKeyInfo or certificate (includes smime-mlkem-*)",
+			"wire": "base64url DER"
+		}
+	},
+	"vectors": [
+		{
+			"id": "ed25519-msk-test-only",
+			"insecure_test_material": true,
+			"algorithm": "ed25519",
+			"public_key_base64url": "Ei_Ps8ZkAALwDQIAJocCfSXnaNRdRU_QycTvC-IgpK4",
+			"public_key_hex": "122fcfb3c6640002f00d02002687027d25e768d45d454fd0c9c4ef0be220a4ae",
+			"private_key_hex": "83e261d9dc76ffa25bf0a1e421506c9b844d724ec0b88844be00833c28403193",
+			"note": "Generated solely for conformance tests. Never use outside tests."
+		}
+	]
+}

@@ -1,0 +1,54 @@
+{
+	"vault_format_version": 1,
+	"kdf": {
+		"name": "pbkdf2-sha256",
+		"iterations": 210000,
+		"salt_bytes": 16
+	},
+	"aead": {
+		"name": "aes-256-gcm",
+		"iv_bytes": 12,
+		"tag_bits": 128
+	},
+	"plaintext_schema": {
+		"vault_format_version": 1,
+		"principal": "uuid-v8",
+		"created_at": "unix_ms",
+		"updated_at": "unix_ms",
+		"entries": [
+			{
+				"kind": "msk | content",
+				"key_id": "integer for content keys; omitted for MSK",
+				"family": "pgp | smime | null for MSK",
+				"purpose": "master-signing | signing | encryption | key-agreement | kem | certificate",
+				"algorithm": "registry id",
+				"fingerprint": "hex",
+				"private_material": "portable encrypted or raw export used only before wrap",
+				"status": "active | retired"
+			}
+		]
+	},
+	"invariants": [
+		"Exported representation MUST NOT contain plaintext private keys",
+		"Merge is a union by public fingerprint, not generation key_id",
+		"Same fingerprint with different secret material is vault_integrity",
+		"Same generation key_id with different fingerprints MUST be retained",
+		"Merge never discards a private historical key merely because it is not current",
+		"Integrity is authenticated by AES-GCM"
+	],
+	"locator": {
+		"openpgp": "64-bit Key-ID displayed as XXXX-XXXX-XXXX-XXXX",
+		"smime": "normalized certificate id"
+	},
+	"key_package": {
+		"kind": "scomm-key-package",
+		"package_version": 1
+	},
+	"vectors": [
+		{
+			"id": "empty-unlocked-structure",
+			"principal": "9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976",
+			"entries": []
+		}
+	]
+}

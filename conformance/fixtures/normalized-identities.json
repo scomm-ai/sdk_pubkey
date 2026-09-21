@@ -1,0 +1,60 @@
+{
+	"algorithm": "SComm email canonicalization + SHA-256 last-16-bytes UUID v8",
+	"steps": [
+		"Trim Unicode whitespace",
+		"Unicode NFC",
+		"Split on the last ASCII @",
+		"Domain: Unicode lowercase, NFC",
+		"Local: Unicode lowercase, NFC; `+` in the local part is preserved",
+		"Join local@domain",
+		"SHA-256 UTF-8 bytes of the canonical string",
+		"UUID v8 from last 16 digest bytes (version 8 + RFC variant)"
+	],
+	"vectors": [
+		{
+			"id": "already-canonical",
+			"input": "alice@example.com",
+			"canonical": "alice@example.com",
+			"sha256": "ff8d9819fc0e12bf0d24892e45987e249a28dce836a85cad60e28eaaa8c6d976",
+			"principal": "9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976"
+		},
+		{
+			"id": "trim-case-plus-tag",
+			"input": "  Alice.Smith+work@Example.COM  ",
+			"canonical": "alice.smith+work@example.com",
+			"sha256": "2e46a180b2fbcf231008640834731339ae2701704c6b9d25c3ae1c089241fff8",
+			"principal": "ae270170-4c6b-8d25-83ae-1c089241fff8"
+		},
+		{
+			"id": "last-at-split",
+			"input": "A@B@Example.COM",
+			"canonical": "a@b@example.com",
+			"sha256": "89a5e21d37af6be459c2d2fdea467bca3f639b11e77ec5c00c73b0a8beda717a",
+			"principal": "3f639b11-e77e-85c0-8c73-b0a8beda717a"
+		},
+		{
+			"id": "nfc-unicode",
+			"input": "ÉUser+tag@Exámple.COM",
+			"canonical": "éuser+tag@exámple.com",
+			"sha256": "4aab1f3ba49cfedf92a41ef5a2453e32b38c957abed6f2d812f30bd8cba4cd99",
+			"principal": "b38c957a-bed6-82d8-92f3-0bd8cba4cd99"
+		}
+	],
+	"valid": [
+		"alice@example.com",
+		"alice+work@example.com",
+		"a.b@gmail.com",
+		"user_name@example.com",
+		"éuser@exámple.com",
+		"josé@scomm.ai"
+	],
+	"invalid": [
+		"",
+		"not-an-email",
+		"alice@",
+		"@example.com",
+		"alice@localhost",
+		"alice@127.0.0.1",
+		"alice@[192.0.2.1]"
+	]
+}
