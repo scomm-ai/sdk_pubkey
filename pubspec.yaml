@@ -9,9 +9,9 @@ environment:
 dependencies:
   ckvf:
     git:
-      url: https://github.com/Cryptographic-Key-Vault-Format/ckvf-sdks.git
+      url: https://github.com/Cryptographic-Key-Vault-Format/ckvf.git
       path: packages/dart
-      ref: 31e73688719fdf38730797722c50814d37bd2458
+      ref: e1081a5fece00878bd65e5dcb9317c9f62df73dd
   crypto: ^3.0.6
   cryptography: ^2.7.0
   dio: ^5.7.0

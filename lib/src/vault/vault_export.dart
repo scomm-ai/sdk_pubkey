@@ -25,7 +25,7 @@ import 'key_hierarchy.dart';
 // ("The passphrase itself must never be embedded in the
 // exported file").
 //
-// Deliberately distinct from `package:ckvf` (ckvf-sdks/packages/dart)
+// Deliberately distinct from `package:ckvf` (ckvf/packages/dart)
 // — a separate, pre-existing, unrelated container format already used by
 // this app's `KeyManagerController.exportLocalVault`/`importLocalVault` (see
 // that file's doc comments). [vaultExportKind] exists so a user's two kinds
