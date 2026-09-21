@@ -515,15 +515,10 @@ class PubkeyRuntime {
   /// down so this device actually has vault content, not just
   /// the key material to decrypt it.
   ///
-  /// Known gap (flagged, not silently worked around): pulling the vault
-  /// generation goes through [PubkeyClient.downloadCurrentVault], which
-  /// requires an MSK-signed request envelope for
-  /// *every* operation, including reads. Producing that signature requires
-  /// AEK to unwrap MSK. A `"limited"`-tier device never receives AEK by
-  /// design (the read-only tier), so it can complete the
-  /// pairing handshake (VEK/DKEK persisted) but cannot complete this final
-  /// content sync — it throws [ErrorCodes.deviceNotAuthorized] instead of
-  /// silently pretending to succeed.
+  /// Limited-tier devices **can** pull after VEK is installed:
+  /// [PubkeyClient.downloadCurrentVault] is unauthenticated and verifies
+  /// the hosted record's MSK signature locally. They still cannot unwrap
+  /// MSK (no AEK) or upload a new generation (`device_not_authorized`).
   Future<PairingSession> beginPairingAsNewDevice({
     required String email,
     required String deviceName,

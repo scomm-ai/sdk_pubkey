@@ -42,7 +42,7 @@ class VaultEntry {
   final String? fingerprint;
   String? locator;
   List<String>? locators;
-  final Uint8List? privateMaterial;
+  Uint8List? privateMaterial;
   String status;
 
   /// Epoch milliseconds. The vault schema requires `created_at` on every
@@ -617,6 +617,29 @@ class Vault {
   VaultEntry? revokeKey(int keyId) {
     _requireUnlocked();
     return _terminate(getKey(keyId), 'revoked');
+  }
+
+  /// Clears [privateMaterial] on a signing/content entry and marks it
+  /// `'retired'`. Encryption and key-agreement entries MUST keep private
+  /// bytes so historically encrypted mail stays decryptable.
+  VaultEntry clearSigningPrivate(VaultEntry entry) {
+    _requireUnlocked();
+    final purpose = entry.purpose;
+    if (purpose != 'signing') {
+      throw PubkeyException(
+        ErrorCodes.vaultIntegrity,
+        'Refusing to clear private material on a non-signing vault entry',
+      );
+    }
+    entry.privateMaterial = null;
+    return _terminate(entry, 'retired')!;
+  }
+
+  VaultEntry? clearSigningPrivateByFingerprint(String fingerprint) {
+    _requireUnlocked();
+    final entry = findKeyByFingerprint(fingerprint);
+    if (entry == null) return null;
+    return clearSigningPrivate(entry);
   }
 
   Vault merge(Vault other) {

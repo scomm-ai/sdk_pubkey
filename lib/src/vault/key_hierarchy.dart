@@ -4,7 +4,7 @@ import '../canonical.dart';
 import '../crypto/provider.dart';
 import '../errors.dart';
 
-// CKVF key hierarchy.
+// SComm key hierarchy (VEK / AEK / DKEK).
 //
 // AEK, VEK, and DKEK are always raw CSPRNG symmetric keys — never derived
 // from a password, OTP, or email (Boundary B1) — and move between devices

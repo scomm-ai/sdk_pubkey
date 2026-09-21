@@ -9,7 +9,7 @@ for portable Vault **containers**.
 | `secmail_pubkey_sdk` | repo root | A + B | Dart |
 | `@scomm/discovery` | `packages/js` | A (read + select) | TypeScript |
 
-Layering (do not merge into CKVF): [`docs/LAYERING.md`](docs/LAYERING.md).
+Layering (SComm vault is master; `package:ckvf` follows for encodings): [`docs/LAYERING.md`](docs/LAYERING.md), [`docs/scomm-vault-hierarchy.md`](docs/scomm-vault-hierarchy.md).
 
 Implements Discovery Protocol **`0.2-draft`** HTTP client surface
 (`discoverMailbox`, resources, operations, challenges) while preserving legacy

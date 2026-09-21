@@ -70,6 +70,7 @@ abstract final class ErrorCodes {
 
   // Recovery code setup/recovery.
   static const recoveryEnvelopeNotFound = 'recovery_envelope_not_found';
+  static const vaultBackupNotFound = 'vault_backup_not_found';
 
   // Historical key retention & re-import.
   static const vaultGenerationNotFound = 'vault_generation_not_found';
@@ -122,6 +123,7 @@ abstract final class ErrorCodes {
     encryptionKeyAdvertisementFailed,
     vaultExportFormatUnsupported,
     recoveryEnvelopeNotFound,
+    vaultBackupNotFound,
     vaultGenerationNotFound,
   ];
 }

@@ -7,7 +7,7 @@ import '../crypto/provider.dart';
 import '../errors.dart';
 import 'key_hierarchy.dart';
 
-// CKVF offline vault export/import.
+// SComm offline vault export/import (`kind: scomm-vault-export`).
 //
 // This file only wires the structural rules of the export file format onto
 // the existing [CryptoProvider] primitives (Argon2id via `deriveArgon2id`,
@@ -31,7 +31,7 @@ import 'key_hierarchy.dart';
 // that file's doc comments). [vaultExportKind] exists so a user's two kinds
 // of exported file are never confused with each other.
 
-/// A CKVF-spec offline export file's `vek_envelope`/`aek_envelope` shape:
+/// A SComm offline export file's `vek_envelope`/`aek_envelope` shape:
 /// `AEAD_Encrypt(EEK, secret)`, plus the Argon2id parameters needed to
 /// re-derive EEK from the passphrase on the importing side. The passphrase
 /// itself is never present here.

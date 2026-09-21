@@ -29,8 +29,8 @@ Applications (Flutter, browser, Outlook, webview mail)
 | --- | --- | --- |
 | `discovery-protocol` | Document + HTTP API schemas, examples, signing vectors | Client SDKs, hosted service |
 | `discovery.scomm.ai` (`pubkey`) | Compatible host implementing `/v1/` | Client providers, Vault plaintext |
-| This repo (Discovery/Pubkey clients) | HTTP client, MSK signing, challenges/ops, hosted vault sync orchestration, Discover Document select | CKVF container semantics |
-| `ckvf` | Portable vault container read/write, encodings, unlock methods, shared test-vectors | SComm, Discovery HTTP, MSK, OTP |
+| This repo (Discovery/Pubkey clients) | HTTP client, MSK signing, challenges/ops, **SComm** hosted vault sync (VEK/AEK/DKEK), password backup stores | Community CKVF container dialect |
+| `ckvf` / ckvf-sdks | Encodings, JCS/base64url, shared test-vectors; **align docs/APIs to SComm** VEK/AEK/DKEK + password backup as a layer above VEK | Hosted Discovery HTTP, live SComm runtime |
 
 ## Sync policy
 

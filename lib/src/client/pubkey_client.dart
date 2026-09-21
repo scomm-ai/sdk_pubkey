@@ -1450,6 +1450,81 @@ class PubkeyClient {
     );
   }
 
+  /// MSK-signed upload of a password-wrapped `scomm-vault-export`. The
+  /// server stores the JSON opaquely and never unwraps EEK.
+  Future<dynamic> setVaultBackup({
+    required String email,
+    required KeyRef mskKey,
+    required String backupJson,
+  }) {
+    return mutate(
+      email: email,
+      operation: Operations.setVaultBackup,
+      payload: {'backup_json': backupJson},
+      mskKey: mskKey,
+    );
+  }
+
+  Future<dynamic> deleteVaultBackup({
+    required String email,
+    required KeyRef mskKey,
+  }) {
+    return mutate(
+      email: email,
+      operation: Operations.deleteVaultBackup,
+      payload: const {},
+      mskKey: mskKey,
+    );
+  }
+
+  Future<dynamic> requestVaultBackupOtp({required String email}) {
+    final canonical = requireCanonicalEmail(normalizeEmail(email));
+    return pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, '/v1/vault/backup/otp'),
+      method: 'POST',
+      body: {'email': canonical},
+    );
+  }
+
+  /// OTP-gated fetch of a hosted password backup. OTP does not decrypt.
+  Future<Map<String, dynamic>> fetchVaultBackup({
+    required String email,
+    required String otp,
+  }) async {
+    final canonical = requireCanonicalEmail(normalizeEmail(email));
+    final result = await pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, '/v1/vault/backup/fetch'),
+      method: 'POST',
+      body: {
+        'sha256': emailSha256Hex(canonical),
+        'otp': otp,
+      },
+    );
+    final map = Map<String, dynamic>.from(result as Map);
+    final backup = map['backup'];
+    if (backup is! Map) {
+      throw PubkeyException(
+        ErrorCodes.vaultBackupNotFound,
+        'No password backup has been stored for this identity',
+      );
+    }
+    return Map<String, dynamic>.from(backup);
+  }
+
+  Future<bool> hasVaultBackup({required String email}) async {
+    final canonical = requireCanonicalEmail(normalizeEmail(email));
+    final result = await pubkeyRequest(
+      dio,
+      joinUrl(
+        readBaseUrl,
+        '/v1/vault/backup-exists/${emailSha256Hex(canonical)}',
+      ),
+    ) as Map;
+    return result['exists'] == true;
+  }
+
   /// The OTP request half — mirrors
   /// [enrollMsk]/[replaceMsk]'s "create pending state, then email an OTP"
   /// shape, but this OTP only gates a *read* ([fetchRecoveryEnvelope]), it

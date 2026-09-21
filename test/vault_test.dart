@@ -250,5 +250,49 @@ void main() {
       );
       expect(await vault.unwrapMsk(aek), equals(portable.bytes));
     });
+
+    test('clearSigningPrivate wipes signing secret and refuses encryption',
+        () async {
+      final crypto = DartCryptoProvider();
+      final vault = Vault(crypto: crypto);
+      await vault.createVault('p');
+      vault.addKey({
+        'kind': 'content',
+        'key_id': 1,
+        'purpose': 'signing',
+        'fingerprint': 'sign-fp',
+        'private_material': encodeBase64Url(Uint8List.fromList([9, 9, 9])),
+        'status': 'active',
+      });
+      vault.addKey({
+        'kind': 'content',
+        'key_id': 2,
+        'purpose': 'encryption',
+        'fingerprint': 'enc-fp',
+        'private_material': encodeBase64Url(Uint8List.fromList([1, 2, 3])),
+        'status': 'active',
+      });
+      vault.currentSigningKeyId = '1';
+
+      final cleared = vault.clearSigningPrivate(vault.getKey(1)!);
+      expect(cleared.privateMaterial, isNull);
+      expect(cleared.status, 'retired');
+      expect(cleared.fingerprint, 'sign-fp');
+      expect(cleared.keyId, 1);
+      expect(vault.currentSigningKeyId, isNull);
+
+      expect(vault.getKey(2)?.privateMaterial, isNotEmpty);
+      expect(
+        () => vault.clearSigningPrivate(vault.getKey(2)!),
+        throwsA(
+          isA<PubkeyException>().having(
+            (e) => e.code,
+            'code',
+            ErrorCodes.vaultIntegrity,
+          ),
+        ),
+      );
+      expect(vault.getKey(2)?.privateMaterial, isNotEmpty);
+    });
   });
 }

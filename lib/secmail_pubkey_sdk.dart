@@ -36,4 +36,5 @@ export 'src/vault/key_hierarchy.dart';
 export 'src/vault/recovery_code.dart';
 export 'src/vault/store.dart';
 export 'src/vault/vault.dart';
+export 'src/vault/vault_backup_store.dart';
 export 'src/vault/vault_export.dart';

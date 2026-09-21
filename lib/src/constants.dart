@@ -33,16 +33,18 @@ abstract final class Operations {
   static const vaultGetCurrent = 'vault_get_current';
   static const cancelHighRiskMutation = 'cancel_high_risk_mutation';
   static const setRecoveryEnvelope = 'set_recovery_envelope';
+  static const setVaultBackup = 'set_vault_backup';
+  static const deleteVaultBackup = 'delete_vault_backup';
 }
 
-/// CKVF: the user's choice of recovery-code format at setup
+/// SComm: the user's choice of recovery-code format at setup
 /// time (Owner decision).
 abstract final class RecoveryCodeFormats {
   static const bip39 = 'bip39';
   static const random = 'random';
 }
 
-/// CKVF: the user's choice of recovery-envelope scope at
+/// SComm: the user's choice of recovery-envelope scope at
 /// setup time (Owner decision). `full` wraps both
 /// VEK and AEK; `readOnly` wraps VEK only, so a device recovered with this
 /// code can never sign a device-add mutation (no AEK to unwrap MSK with) —
@@ -53,7 +55,7 @@ abstract final class RecoveryScopes {
   static const readOnly = 'read-only';
 }
 
-/// CKVF: the three mutation kinds a client may honestly
+/// SComm: the three mutation kinds a client may honestly
 /// declare on a [PubkeyClient.uploadVault] call, so the server can start a
 /// grace-period bookkeeping row for it. Omitted entirely for routine content
 /// mutations.
@@ -227,7 +229,7 @@ const int vaultSaltBytes = 16;
 const int vaultIvBytes = 12;
 const int vaultPepperBytes = 32;
 
-/// CKVF: EEK (Export Encryption Key, and REK when that
+/// SComm: EEK (Export Encryption Key, and REK when that
 /// gets there) must be derived via Argon2id — unlike [vaultKdf] (PBKDF2),
 /// which is only used by the unrelated, pre-existing single-key
 /// `Vault.exportKeyPackage`/`importKeyPackage` feature. Parameters follow
@@ -240,7 +242,7 @@ const int argon2idDefaultIterations = 3;
 const int argon2idDefaultParallelism = 1;
 const int eekSaltBytes = 16;
 
-/// CKVF: the offline vault export/import file format.
+/// SComm: the offline vault export/import file format.
 /// [vaultExportKind] is deliberately distinct from `package:ckvf`'s own
 /// `format` field value (that package is a separate, pre-existing,
 /// unrelated container format also used by this app — see
