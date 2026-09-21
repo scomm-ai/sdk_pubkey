@@ -317,7 +317,7 @@ void main() {
       },
     );
 
-    test('maps exhausted connection failures to provider_unavailable', () async {
+    test('maps exhausted connection failures to pubkey_unreachable', () async {
       final crypto = DartCryptoProvider();
       final dio = Dio();
       dio.httpClientAdapter = _ScriptedAdapter((options) async {
@@ -345,8 +345,8 @@ void main() {
         );
         fail('expected PubkeyException');
       } on PubkeyException catch (error) {
-        expect(error.code, ErrorCodes.providerUnavailable);
-        expect(error.message, contains('pubkey server'));
+        expect(error.code, ErrorCodes.pubkeyUnreachable);
+        expect(error.message, 'The pubkey server could not be reached.');
       }
     });
 

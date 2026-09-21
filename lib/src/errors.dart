@@ -75,6 +75,15 @@ abstract final class ErrorCodes {
   // Historical key retention & re-import.
   static const vaultGenerationNotFound = 'vault_generation_not_found';
 
+  /// TCP/DNS never reached the pubkey host.
+  static const pubkeyUnreachable = 'pubkey_unreachable';
+
+  /// TCP connected (or equivalent) but TLS/HTTPS handshake failed.
+  static const httpsCouldNotBeEstablished = 'https_could_not_be_established';
+
+  /// The host was contacted but the request timed out.
+  static const requestTimeout = 'request_timeout';
+
   static const List<String> all = [
     invalidSignature,
     unknownPrincipal,
@@ -125,6 +134,9 @@ abstract final class ErrorCodes {
     recoveryEnvelopeNotFound,
     vaultBackupNotFound,
     vaultGenerationNotFound,
+    pubkeyUnreachable,
+    httpsCouldNotBeEstablished,
+    requestTimeout,
   ];
 }
 
