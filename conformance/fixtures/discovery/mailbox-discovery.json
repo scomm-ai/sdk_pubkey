@@ -1,0 +1,31 @@
+{
+  "$schema": "https://discovery.scomm.ai/schema/v1/discovery.schema.json",
+  "schemaVersion": "1.0",
+  "mailbox": "alice@example.com",
+  "capabilities": {
+    "crypto": {
+      "encryption": {
+        "keys": [
+          {
+            "family": "openpgp",
+            "keyId": "ABCD1234",
+            "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...\n-----END PGP PUBLIC KEY BLOCK-----"
+          }
+        ]
+      },
+      "verification": {
+        "keys": [
+          {
+            "family": "openpgp",
+            "keyId": "EFGH5678",
+            "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...\n-----END PGP PUBLIC KEY BLOCK-----"
+          }
+        ]
+      }
+    },
+    "preferences": {
+      "languages": ["en"]
+    }
+  },
+  "extensions": {}
+}

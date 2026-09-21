@@ -10,6 +10,8 @@ import '../constants.dart';
 import '../crypto/capabilities.dart';
 import '../crypto/provider.dart';
 import '../device.dart';
+import '../discovery/document.dart';
+import '../discovery/types.dart';
 import '../engines/pgp.dart';
 import '../engines/smime.dart';
 import '../errors.dart';
@@ -569,6 +571,173 @@ class PubkeyClient {
         )
         .join('&');
     return pubkeyRequest(dio, joinUrl(readBaseUrl, '/v1/keys?$query'));
+  }
+
+  /// Percent-encoded mailbox path segment for `/v1/mailboxes/{mailbox}/…`.
+  String encodeMailboxPath(String mailbox) =>
+      Uri.encodeComponent(requireCanonicalEmail(normalizeEmail(mailbox)));
+
+  /// Public Discovery Document for [mailbox] (read host).
+  Future<DiscoveryDocument> discoverMailbox(String mailbox) async {
+    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}';
+    final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
+    if (data is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Discovery document response was not a JSON object',
+      );
+    }
+    return DiscoveryDocument.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// List public resources for [mailbox] (read host).
+  Future<List<DiscoveryResource>> listResources(String mailbox) async {
+    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/resources';
+    final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
+    if (data is! Map) return const [];
+    final list = data['resources'];
+    if (list is! List) return const [];
+    return [
+      for (final item in list)
+        if (item is Map)
+          DiscoveryResource.fromJson(Map<String, dynamic>.from(item)),
+    ];
+  }
+
+  /// Create a managed resource (write host). [envelope] is an MSK-signed body
+  /// that may also carry `type` / `value` for Discovery resource creates.
+  Future<dynamic> createResource({
+    required String mailbox,
+    required Map<String, dynamic> envelope,
+  }) {
+    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/resources';
+    return pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, path),
+      method: 'POST',
+      body: envelope,
+      reconcileReplayAfterConnectionFailure: true,
+    );
+  }
+
+  /// Execute an MSK-signed operation on the generic operations endpoint.
+  Future<dynamic> executeOperation({
+    required String mailbox,
+    required Map<String, dynamic> envelope,
+  }) {
+    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/operations';
+    return pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, path),
+      method: 'POST',
+      body: envelope,
+      reconcileReplayAfterConnectionFailure: true,
+    );
+  }
+
+  /// Create an email-OTP (or other) challenge.
+  Future<DiscoveryChallenge> createChallenge({
+    required String mailbox,
+    required String type,
+    required String purpose,
+    Map<String, dynamic>? input,
+    String? idempotencyKey,
+  }) async {
+    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges';
+    final body = <String, dynamic>{
+      'type': type,
+      'purpose': purpose,
+      'schemaVersion': DiscoveryProtocolContract.schemaVersion,
+      if (input != null) 'input': input,
+    };
+    final data = await pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, path),
+      method: 'POST',
+      body: body,
+    );
+    if (data is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Challenge create response was not a JSON object',
+      );
+    }
+    return DiscoveryChallenge.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// Respond to a challenge (e.g. email OTP code).
+  Future<DiscoveryChallenge> respondToChallenge({
+    required String mailbox,
+    required String challengeId,
+    required Map<String, dynamic> response,
+  }) async {
+    final path =
+        '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}/responses';
+    final data = await pubkeyRequest(
+      dio,
+      joinUrl(writeBaseUrl, path),
+      method: 'POST',
+      body: {'response': response},
+    );
+    if (data is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Challenge response was not a JSON object',
+      );
+    }
+    return DiscoveryChallenge.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<DiscoveryChallenge> getChallenge({
+    required String mailbox,
+    required String challengeId,
+  }) async {
+    final path =
+        '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}';
+    final data = await pubkeyRequest(dio, joinUrl(writeBaseUrl, path));
+    if (data is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Challenge status response was not a JSON object',
+      );
+    }
+    return DiscoveryChallenge.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// Compatibility: send mailbox OTP for first-device enroll via challenges API
+  /// when [useGenericChallenges] is true; otherwise legacy `/v1/msk/enroll`.
+  Future<dynamic> sendOtp({
+    required String email,
+    required List<int> mskPublicKey,
+    bool useGenericChallenges = false,
+  }) {
+    if (!useGenericChallenges) {
+      return enrollMsk(email: email, mskPublicKey: mskPublicKey);
+    }
+    return createChallenge(
+      mailbox: email,
+      type: ChallengeTypes.emailOtpV1,
+      purpose: OperationTypes.mskEnrollV1,
+      input: {
+        'msk': {
+          'algorithm': mskAlgorithm,
+          'publicKey': encodeBase64Url(mskPublicKey),
+        },
+      },
+    );
+  }
+
+  /// Compatibility: verify mailbox OTP. Prefer [verifyEnroll] for full arming.
+  Future<DiscoveryChallenge> verifyOtp({
+    required String email,
+    required String challengeId,
+    required String otp,
+  }) {
+    return respondToChallenge(
+      mailbox: email,
+      challengeId: challengeId,
+      response: {'code': otp},
+    );
   }
 
   Future<dynamic> reportVaultCoverage({

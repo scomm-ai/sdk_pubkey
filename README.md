@@ -3,6 +3,10 @@
 SComm Dart pubkey protocol adapter (HTTP, enrollment, OTP, Vault wrap) over
 [`ckvf`](https://github.com/Cryptographic-Key-Vault-Format/ckvf-sdks/tree/main/packages/dart).
 
+Implements Discovery Protocol **`0.2-draft`** HTTP API client surface
+(`discoverMailbox`, resources, operations, challenges) while preserving legacy
+convenience methods (`enrollMsk`, `getBestKey`, vault APIs).
+
 This package is not published on pub.dev. Consume it from Git:
 
 ```yaml
@@ -11,6 +15,9 @@ secmail_pubkey_sdk:
     url: https://github.com/scomm-ai/sdk_pubkey.git
     ref: <full-sha>
 ```
+
+Three-repo development with `discovery-protocol` and `pubkey`: see
+`pubkey/docs/PROTOCOL_DEVELOPMENT.md`.
 
 ## Hosts
 
@@ -28,7 +35,8 @@ dart test
 
 ## Layout
 
-- `PubkeyClient` — directory HTTP, enrollment, Vault sync
+- `PubkeyClient` — directory HTTP, Discovery Document GET, enrollment, Vault sync
+- `DiscoveryDocument` / `DiscoveryResource` / challenge types — generic protocol models
 - `PubkeyRuntime` — per-account runtime over a `VaultStore`
 - `Vault` / device pairing / recovery code — local key hierarchy
 - OpenPGP and S/MIME engines — protocol adapters used by the host app

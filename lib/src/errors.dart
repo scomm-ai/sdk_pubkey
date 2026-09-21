@@ -147,8 +147,25 @@ class PubkeyException implements Exception {
 
   factory PubkeyException.fromResponse(int status, Object? body) {
     if (body is Map) {
+      final nested = body['error'];
+      if (nested is Map) {
+        return PubkeyException(
+          nested['code']?.toString() ??
+              body['code']?.toString() ??
+              'server_error',
+          nested['message']?.toString() ??
+              body['message']?.toString() ??
+              'Pubkey request failed ($status)',
+          status: status,
+          serverTime: nested['details'] is Map
+              ? (nested['details'] as Map)['server_time'] ?? body['server_time']
+              : body['server_time'],
+        );
+      }
       return PubkeyException(
-        body['error']?.toString() ?? 'server_error',
+        body['error']?.toString() ??
+            body['code']?.toString() ??
+            'server_error',
         body['message']?.toString() ?? 'Pubkey request failed ($status)',
         status: status,
         serverTime: body['server_time'],

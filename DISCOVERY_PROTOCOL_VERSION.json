@@ -1,0 +1,6 @@
+{
+  "protocolVersion": "0.2-draft",
+  "schemaVersion": "1.0",
+  "apiVersion": "1",
+  "note": "Keep in sync with discovery-protocol and pubkey/vendor/discovery-protocol/DISCOVERY_PROTOCOL_VERSION.json"
+}
