@@ -2,5 +2,8 @@
   "protocolVersion": "0.2-draft",
   "schemaVersion": "1.0",
   "apiVersion": "1",
-  "note": "Keep in sync with discovery-protocol and pubkey/vendor/discovery-protocol/DISCOVERY_PROTOCOL_VERSION.json"
+  "specCommit": "2a7e431d6cdb54b8d9167307a98b23a841de6b28",
+  "source": "scomm-public/discovery-protocol",
+  "branch": "feature/generic-discovery-api",
+  "note": "Keep in sync with discovery-protocol and pubkey/vendor/discovery-protocol/DISCOVERY_PROTOCOL_VERSION.json. Conformance fixtures under conformance/fixtures/discovery/ must match examples/v1/api/ at this commit."
 }

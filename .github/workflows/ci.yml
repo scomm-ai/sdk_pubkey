@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.5.0"
+      - name: Resolve dependencies
+        run: dart pub get
+      - name: Analyze
+        run: dart analyze
+      - name: Test (includes discovery conformance fixtures)
+        run: dart test
+
+  js-track-a:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: packages/js/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test Track A + shared discovery fixtures
+        run: npm test
+
+  discovery-fixture-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require discovery pin + fixtures
+        run: |
+          test -f DISCOVERY_PROTOCOL_VERSION.json
+          test -f conformance/fixtures/discovery/mailbox-discovery.json
+          test -f conformance/fixtures/discovery/signing-vectors.json
+          node -e "const p=require('./DISCOVERY_PROTOCOL_VERSION.json'); if(!p.specCommit||!p.protocolVersion) process.exit(1)"

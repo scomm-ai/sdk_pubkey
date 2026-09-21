@@ -11,10 +11,13 @@ doc/api/
 
 *.dart.js
 *.info.json
-*.js
 *.js_
 *.js.deps
 *.js.map
+
+# Compiled JS from packages/js (sources are TypeScript)
+packages/js/dist/
+packages/js/node_modules/
 
 .flutter-plugins
 .flutter-plugins-dependencies

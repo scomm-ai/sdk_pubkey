@@ -61,8 +61,19 @@ void main() {
     expect(ex.message, contains('expired'));
   });
 
+  test('DISCOVERY_PROTOCOL_VERSION pin declares specCommit', () {
+    final pin = jsonDecode(
+      File('DISCOVERY_PROTOCOL_VERSION.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    expect(pin['protocolVersion'], isNotEmpty);
+    expect(pin['schemaVersion'], isNotEmpty);
+    expect(pin['apiVersion']?.toString(), isNotEmpty);
+    expect(pin['specCommit'], isNotEmpty);
+  });
+
   test('signing vectors match SComm/Pubkey canonicalization', () {
     final file = File('conformance/fixtures/discovery/signing-vectors.json');
+    expect(file.existsSync(), isTrue);
     final fixture = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     final vector = (fixture['vectors'] as List).first as Map<String, dynamic>;
     final envelope = vector['envelope'] as Map<String, dynamic>;
@@ -83,6 +94,7 @@ void main() {
 
   test('mailbox-discovery fixture parses', () {
     final file = File('conformance/fixtures/discovery/mailbox-discovery.json');
+    expect(file.existsSync(), isTrue);
     final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     final doc = DiscoveryDocument.fromJson(json);
     expect(doc.schemaVersion, '1.0');
