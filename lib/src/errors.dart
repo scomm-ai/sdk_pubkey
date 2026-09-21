@@ -16,6 +16,7 @@ abstract final class ErrorCodes {
   static const otpInvalid = 'otp_invalid';
   static const otpExpired = 'otp_expired';
   static const principalMismatch = 'principal_mismatch';
+  static const invalidRequest = 'invalid_request';
   static const emailNotCanonical = 'email_not_canonical';
   static const invalidEmail = 'invalid_email';
   static const vaultConflict = 'vault_conflict';
@@ -89,6 +90,7 @@ abstract final class ErrorCodes {
     otpInvalid,
     otpExpired,
     principalMismatch,
+    invalidRequest,
     emailNotCanonical,
     invalidEmail,
     vaultConflict,

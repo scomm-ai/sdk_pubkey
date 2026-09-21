@@ -37,6 +37,13 @@ void main() {
     );
   });
 
+  test('ScommKeyId is content-addressable XXXX-XXXX', () {
+    final id = ScommKeyId.derive(utf8.encode('sig-key-material'));
+    expect(id, matches(RegExp(r'^[0-9A-F]{4}-[0-9A-F]{4}$')));
+    expect(ScommKeyId.derive(utf8.encode('sig-key-material')), id);
+    expect(ScommKeyId.equals(id, id.replaceAll('-', '').toLowerCase()), isTrue);
+  });
+
   test('mailbox path encoding keeps plus tags before canonicalization', () {
     final client = PubkeyClient(
       crypto: DartCryptoProvider(),
@@ -88,6 +95,7 @@ void main() {
     expect(doc.schemaVersion, '1.0');
     expect(doc.mailbox, 'alice@example.com');
     expect(doc.encryptionKeys(), isNotEmpty);
-    expect(doc.verificationKeys(), isNotEmpty);
+    // Public discovery documents must not project verification key material.
+    expect(doc.verificationKeys(), isEmpty);
   });
 }

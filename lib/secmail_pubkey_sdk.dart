@@ -7,6 +7,7 @@ export 'src/config/pubkey_config.dart';
 export 'src/constants.dart';
 export 'src/device.dart';
 export 'src/discovery/document.dart';
+export 'src/discovery/scomm_key_id.dart';
 export 'src/discovery/types.dart';
 export 'src/crypto/capabilities.dart';
 export 'src/crypto/dart_crypto.dart';

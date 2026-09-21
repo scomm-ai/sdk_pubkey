@@ -544,11 +544,15 @@ class PubkeyClient {
     String? email,
     String? sha256,
     String? purpose,
+    String? keyId,
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    final resolved =
-        capabilities ?? await discoveryCapabilities(capabilityPolicy);
+    final isSigning =
+        purpose == Purposes.signing || purpose == 'verification';
+    final resolved = isSigning && keyId != null && keyId.trim().isNotEmpty
+        ? (capabilities ?? const <String, dynamic>{'families': {}})
+        : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
     final hash = sha256 ??
         (email == null
             ? null
@@ -559,11 +563,20 @@ class PubkeyClient {
         'sha256 of the canonical email is required',
       );
     }
+    if (isSigning && (keyId == null || keyId.trim().isEmpty)) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'key_id is required to fetch a signing public key',
+      );
+    }
     final params = <String, dynamic>{
       'sha256': hash,
-      'capabilities': jsonEncode(resolved),
+      if (!isSigning || resolved.isNotEmpty) 'capabilities': jsonEncode(resolved),
     };
     if (purpose != null && purpose.isNotEmpty) params['purpose'] = purpose;
+    if (keyId != null && keyId.trim().isNotEmpty) {
+      params['key_id'] = keyId.trim();
+    }
     final query = params.entries
         .map(
           (e) =>
@@ -571,6 +584,28 @@ class PubkeyClient {
         )
         .join('&');
     return pubkeyRequest(dio, joinUrl(readBaseUrl, '/v1/keys?$query'));
+  }
+
+  /// Gated signing-key fetch: requires mailbox identity + key-id.
+  Future<Map<String, dynamic>> getSigningKey({
+    String? email,
+    String? sha256,
+    required String keyId,
+  }) async {
+    final selected = await getBestKey(
+      email: email,
+      sha256: sha256,
+      purpose: Purposes.signing,
+      keyId: keyId,
+      capabilities: const {'families': {}},
+    );
+    if (selected is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Signing key response was not a JSON object',
+      );
+    }
+    return Map<String, dynamic>.from(selected);
   }
 
   /// Percent-encoded mailbox path segment for `/v1/mailboxes/{mailbox}/…`.

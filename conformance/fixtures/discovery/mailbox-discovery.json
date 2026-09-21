@@ -8,16 +8,7 @@
         "keys": [
           {
             "family": "openpgp",
-            "keyId": "ABCD1234",
-            "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...\n-----END PGP PUBLIC KEY BLOCK-----"
-          }
-        ]
-      },
-      "verification": {
-        "keys": [
-          {
-            "family": "openpgp",
-            "keyId": "EFGH5678",
+            "keyId": "ABCD-1234",
             "publicKey": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n...\n-----END PGP PUBLIC KEY BLOCK-----"
           }
         ]
