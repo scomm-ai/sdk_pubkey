@@ -1,10 +1,10 @@
 # SComm vault hierarchy (master)
 
-SComm is the live vault implementation. Community CKVF (`package:ckvf` /
-[ckvf-sdks](https://github.com/Cryptographic-Key-Vault-Format/ckvf-sdks))
-should describe this hierarchy — not the reverse. Wire format for hosted
+SComm is the live vault implementation. CKVF (`package:ckvf` in
+[scomm-public/ckvf](https://github.com/scomm-public/ckvf)) is the
+SComm.AI-maintained portable container. Wire format for hosted
 generations stays SComm opaque ciphertext + MSK signature. `package:ckvf` is
-used for JCS/base64url helpers until it exports equivalent hierarchy APIs.
+used for container I/O plus JCS/base64url helpers.
 
 ## Standing device unlock (not password)
 
@@ -46,4 +46,4 @@ Never upload an export with `hasSecrets == false` to the hosted store.
 
 Do not silently rewrite a container version on open. Match test-vector
 VERSION pins. No live-format migration is implied by documenting this
-hierarchy in community SDKs.
+hierarchy in the CKVF SDKs.

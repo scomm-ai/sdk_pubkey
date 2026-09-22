@@ -1,15 +1,15 @@
 # secmail_pubkey_sdk / @scomm/discovery
 
 SComm Discovery Protocol + Pubkey client SDKs over
-[`ckvf`](https://github.com/Cryptographic-Key-Vault-Format/ckvf)
-for portable Vault **containers**.
+[`ckvf`](https://github.com/scomm-public/ckvf)
+for portable Vault **containers** (SComm.AI-maintained format).
 
 | Package | Path | Track | Language |
 | --- | --- | --- | --- |
 | `secmail_pubkey_sdk` | repo root | A + B | Dart |
 | `@scomm/discovery` | `packages/js` | A (read + select) | TypeScript |
 
-Layering (SComm vault is master; `package:ckvf` follows for encodings): [`docs/LAYERING.md`](docs/LAYERING.md), [`docs/scomm-vault-hierarchy.md`](docs/scomm-vault-hierarchy.md).
+Layering (hosted vault orchestration here; container I/O in [`scomm-public/ckvf`](https://github.com/scomm-public/ckvf)): [`docs/LAYERING.md`](docs/LAYERING.md), [`docs/scomm-vault-hierarchy.md`](docs/scomm-vault-hierarchy.md).
 
 Implements Discovery Protocol **`0.2-draft`** HTTP client surface
 (`discoverMailbox`, resources, operations, challenges) while preserving legacy
@@ -83,6 +83,6 @@ There is no silent fallback to a production host.
 
 | Task | Where |
 | --- | --- |
-| CKVF create/open/export/import | [`ckvf`](https://github.com/Cryptographic-Key-Vault-Format/ckvf) |
+| CKVF create/open/export/import | [`scomm-public/ckvf`](https://github.com/scomm-public/ckvf) |
 | Hosted vault record sync / MSK | This repo (Dart Track B) |
 | Public Discovery read | This repo (Dart + JS Track A) |

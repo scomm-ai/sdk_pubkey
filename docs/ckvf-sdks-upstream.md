@@ -1,6 +1,8 @@
-# Upstream note for ckvf-sdks
+# Note for scomm-public/ckvf
 
-SComm remains the master runtime (`sdk_pubkey`). Community Dart/JS SDKs
+CKVF is the SComm.AI-maintained portable vault format
+([scomm-public/ckvf](https://github.com/scomm-public/ckvf)).
+`sdk_pubkey` remains the Discovery/Pubkey runtime. The container SDKs
 should document:
 
 - VEK / AEK / DKEK device envelopes
