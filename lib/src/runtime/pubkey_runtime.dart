@@ -2068,6 +2068,7 @@ PubkeyRuntime createPubkeyRuntime(
   DeviceKeyStore? store,
   String? readBaseUrl,
   String? writeBaseUrl,
+  String? vaultBaseUrl,
   String? mailerBaseUrl,
   bool rfc9980Ready = true,
 }) {
@@ -2093,6 +2094,7 @@ PubkeyRuntime createPubkeyRuntime(
     smimeEngine: smime,
     readBaseUrl: readBaseUrl,
     writeBaseUrl: writeBaseUrl,
+    vaultBaseUrl: vaultBaseUrl,
     dio: dio,
   );
   return PubkeyRuntime._(

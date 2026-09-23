@@ -150,6 +150,7 @@ class PubkeyClient {
     this.smimeEngine = const UnsupportedSmimeEngine(),
     String? readBaseUrl,
     String? writeBaseUrl,
+    String? vaultBaseUrl,
     Dio? dio,
     this.sdkName = 'scomm-pubkey-dart',
     this.sdkVersion = '1.2.0',
@@ -161,6 +162,10 @@ class PubkeyClient {
           'PUBKEY_WRITE_BASE_URL',
           writeBaseUrl ?? PubkeyConfig.writeBaseUrl,
         ),
+        vaultBaseUrl = _vaultOrigin(
+          vaultBaseUrl,
+          writeBaseUrl ?? PubkeyConfig.writeBaseUrl,
+        ),
         dio = dio ?? createPubkeyDio();
 
   final CryptoProvider crypto;
@@ -169,6 +174,13 @@ class PubkeyClient {
   final SmimeEngine smimeEngine;
   final String readBaseUrl;
   final String writeBaseUrl;
+  final String vaultBaseUrl;
+
+  static String _vaultOrigin(String? explicit, String writeFallback) {
+    final configured = (explicit ?? PubkeyConfig.vaultBaseUrl).trim();
+    if (configured.isNotEmpty) return configured;
+    return writeFallback.trim();
+  }
   final Dio dio;
   final String sdkName;
   final String sdkVersion;
@@ -1245,7 +1257,7 @@ class PubkeyClient {
       result = _cachedCurrentVaultResponse!;
       _cachedCurrentVaultResponse = null;
     } else {
-      final resultUrl = joinUrl(readBaseUrl, path);
+      final resultUrl = joinUrl(vaultBaseUrl, path);
       assertPubkeyWireHasNoMailbox(url: resultUrl, body: null);
       result = Map<String, dynamic>.from(
         await pubkeyRequest(dio, resultUrl, headers: headers) as Map,
@@ -1317,7 +1329,7 @@ class PubkeyClient {
   }) async {
     final located = await _vaultLocation();
     final url = joinUrl(
-      readBaseUrl,
+      vaultBaseUrl,
       '/v1/vault/${located.vaultId}/pending-mutations',
     );
     final headers = await _vaultReadAuthorization(
@@ -1437,7 +1449,7 @@ class PubkeyClient {
     required String otpGrant,
   }) async {
     requireIdentityId(identityId);
-    final url = joinUrl(writeBaseUrl, '/v1/vault/backup/fetch');
+    final url = joinUrl(vaultBaseUrl, '/v1/vault/backup/fetch');
     final body = {
       'identity_id': identityId,
       'otp_grant': otpGrant,
@@ -1484,7 +1496,7 @@ class PubkeyClient {
   }) async {
     final located = await _vaultLocation();
     final suffix = pathSuffix ?? '/current';
-    final url = joinUrl(readBaseUrl, '/v1/vault/${located.vaultId}$suffix');
+    final url = joinUrl(vaultBaseUrl, '/v1/vault/${located.vaultId}$suffix');
     final headers = await _vaultReadAuthorization(
       identityId: located.identityId,
       vaultId: located.vaultId,
@@ -1553,7 +1565,7 @@ class PubkeyClient {
     final canonical = requireCanonicalEmail(normalizeEmail(email));
     final input = utf8.encode(canonical);
     final blinded = oprfBlind(input, random: _random);
-    final url = joinUrl(readBaseUrl, '/v1/id/oprf/evaluate');
+    final url = joinUrl(vaultBaseUrl, '/v1/id/oprf/evaluate');
     final body = {'blind': encodeBase64Url(blinded.blindedElement)};
     assertPubkeyWireHasNoMailbox(url: url, body: body);
     final result = await pubkeyRequest(
@@ -1632,26 +1644,37 @@ class PubkeyClient {
   }
 
   Future<dynamic> enrollMskForIdentity({
+    String? email,
     required String identityId,
     required String vaultId,
     required List<int> mskPublicKey,
   }) {
     requireIdentityId(identityId);
     requireIdentityId(vaultId);
+    final directory = email != null && email.trim().isNotEmpty;
     final url = joinUrl(writeBaseUrl, '/v1/msk/enroll');
-    final body = {
-      'identity_id': identityId,
-      'vault_id': vaultId,
-      'msk': {
-        'algorithm': mskAlgorithm,
-        'public_key': encodeBase64Url(mskPublicKey),
-      },
-    };
+    final body = directory
+        ? {
+            'sha256': emailSha256Hex(email),
+            'msk': {
+              'algorithm': mskAlgorithm,
+              'public_key': encodeBase64Url(mskPublicKey),
+            },
+          }
+        : {
+            'identity_id': identityId,
+            'vault_id': vaultId,
+            'msk': {
+              'algorithm': mskAlgorithm,
+              'public_key': encodeBase64Url(mskPublicKey),
+            },
+          };
     assertPubkeyWireHasNoMailbox(url: url, body: body);
     return pubkeyRequest(dio, url, method: 'POST', body: body);
   }
 
   Future<dynamic> verifyEnrollForIdentity({
+    String? email,
     required String identityId,
     required String vaultId,
     required String otpGrant,
@@ -1660,12 +1683,15 @@ class PubkeyClient {
   }) async {
     requireIdentityId(identityId);
     requireIdentityId(vaultId);
+    final directorySha = email != null && email.trim().isNotEmpty
+        ? emailSha256Hex(email)
+        : null;
     if (otpGrant.trim().isEmpty) {
       throw PubkeyException(ErrorCodes.otpGrantInvalid, 'otp_grant is required');
     }
     final proof = await _signOperation(
       operation: Operations.armMsk,
-      principal: identityId,
+      principal: directorySha ?? identityId,
       payload: const {},
       key: mskKey,
       version: protocolVersion,
@@ -1681,13 +1707,20 @@ class PubkeyClient {
       );
     }
     final url = joinUrl(writeBaseUrl, '/v1/msk/enroll/verify');
-    final body = {
-      'identity_id': identityId,
-      'vault_id': vaultId,
-      'otp_grant': otpGrant,
-      'msk_proof': proof,
-      if (firstDevice != null) 'first_device': firstDevice,
-    };
+    final body = directorySha == null
+        ? {
+            'identity_id': identityId,
+            'vault_id': vaultId,
+            'otp_grant': otpGrant,
+            'msk_proof': proof,
+            if (firstDevice != null) 'first_device': firstDevice,
+          }
+        : {
+            'sha256': directorySha,
+            'otp_grant': otpGrant,
+            'msk_proof': proof,
+            if (firstDevice != null) 'first_device': firstDevice,
+          };
     assertPubkeyWireHasNoMailbox(url: url, body: body);
     return pubkeyRequest(
       dio,
@@ -1766,7 +1799,7 @@ class PubkeyClient {
     int expiresIn = 300,
   }) async {
     requireIdentityId(identityId);
-    final url = joinUrl(writeBaseUrl, '/v1/pairing/$sessionId');
+    final url = joinUrl(vaultBaseUrl, '/v1/pairing/$sessionId');
     final body = {
       'identity_id': identityId,
       'device_name': deviceName,
@@ -1787,7 +1820,7 @@ class PubkeyClient {
     final query = retrieverDeviceId == null
         ? ''
         : '?retriever_device_id=${Uri.encodeQueryComponent(retrieverDeviceId)}';
-    final url = joinUrl(writeBaseUrl, '/v1/pairing/$sessionId$query');
+    final url = joinUrl(vaultBaseUrl, '/v1/pairing/$sessionId$query');
     assertPubkeyWireHasNoMailbox(url: url, body: null);
     final result = await pubkeyRequest(dio, url);
     return PairingSessionStatus.fromJson(
@@ -1805,7 +1838,7 @@ class PubkeyClient {
     required Uint8List mskSignature,
   }) async {
     requireIdentityId(identityId);
-    final url = joinUrl(writeBaseUrl, '/v1/pairing/$sessionId/response');
+    final url = joinUrl(vaultBaseUrl, '/v1/pairing/$sessionId/response');
     final body = {
       'identity_id': identityId,
       'a_pake_element': encodeBase64Url(aPakeElement),
@@ -1824,7 +1857,7 @@ class PubkeyClient {
     required String otpGrant,
   }) async {
     requireIdentityId(identityId);
-    final url = joinUrl(writeBaseUrl, '/v1/recovery/envelope/fetch');
+    final url = joinUrl(vaultBaseUrl, '/v1/recovery/envelope/fetch');
     final body = {
       'identity_id': identityId,
       'otp_grant': otpGrant,
