@@ -1645,13 +1645,15 @@ class PubkeyClient {
 
   Future<dynamic> enrollMskForIdentity({
     String? email,
-    required String identityId,
-    required String vaultId,
+    String? identityId,
+    String? vaultId,
     required List<int> mskPublicKey,
   }) {
-    requireIdentityId(identityId);
-    requireIdentityId(vaultId);
     final directory = email != null && email.trim().isNotEmpty;
+    if (!directory) {
+      requireIdentityId(identityId ?? '');
+      requireIdentityId(vaultId ?? '');
+    }
     final url = joinUrl(writeBaseUrl, '/v1/msk/enroll');
     final body = directory
         ? {
@@ -1675,31 +1677,33 @@ class PubkeyClient {
 
   Future<dynamic> verifyEnrollForIdentity({
     String? email,
-    required String identityId,
-    required String vaultId,
+    String? identityId,
+    String? vaultId,
     required String otpGrant,
     required KeyRef mskKey,
     Map<String, dynamic>? device,
   }) async {
-    requireIdentityId(identityId);
-    requireIdentityId(vaultId);
     final directorySha = email != null && email.trim().isNotEmpty
         ? emailSha256Hex(email)
         : null;
+    if (directorySha == null) {
+      requireIdentityId(identityId ?? '');
+      requireIdentityId(vaultId ?? '');
+    }
     if (otpGrant.trim().isEmpty) {
       throw PubkeyException(ErrorCodes.otpGrantInvalid, 'otp_grant is required');
     }
     final proof = await _signOperation(
       operation: Operations.armMsk,
-      principal: directorySha ?? identityId,
+      principal: directorySha ?? identityId!,
       payload: const {},
       key: mskKey,
       version: protocolVersion,
     );
     Map<String, dynamic>? firstDevice;
-    if (device != null) {
+    if (device != null && directorySha == null) {
       firstDevice = await _signDeviceAuthorization(
-        email: identityId,
+        email: identityId!,
         mskKey: mskKey,
         device: device,
         principalOverride: identityId,
@@ -1719,7 +1723,6 @@ class PubkeyClient {
             'sha256': directorySha,
             'otp_grant': otpGrant,
             'msk_proof': proof,
-            if (firstDevice != null) 'first_device': firstDevice,
           };
     assertPubkeyWireHasNoMailbox(url: url, body: body);
     return pubkeyRequest(

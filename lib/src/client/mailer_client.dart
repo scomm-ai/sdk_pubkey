@@ -5,7 +5,8 @@ import '../http/http.dart';
 import '../identity.dart';
 
 /// Mailer OTP purposes. The mailer is the only host that may see a mailbox
-/// address. Pubkey receives `identity_id` and `otp_grant` afterward.
+/// address. Vault purposes return `identity_id` and `otp_grant`. Directory
+/// enroll returns `otp_grant` only.
 abstract final class MailerOtpPurpose {
   static const enroll = 'enroll';
   static const replaceMsk = 'replace_msk';
@@ -15,10 +16,22 @@ abstract final class MailerOtpPurpose {
 }
 
 class MailerOtpGrant {
-  const MailerOtpGrant({required this.identityId, required this.otpGrant});
+  const MailerOtpGrant({this.identityId, required this.otpGrant});
 
-  final String identityId;
+  /// Present for vault-consumed purposes. Absent for directory enroll.
+  final String? identityId;
   final String otpGrant;
+
+  String get requireIdentityId {
+    final id = identityId;
+    if (id == null || !RegExp(r'^[0-9a-f]{64}$').hasMatch(id)) {
+      throw PubkeyException(
+        ErrorCodes.otpGrantInvalid,
+        'Mailer verify did not return identity_id',
+      );
+    }
+    return id;
+  }
 }
 
 /// App-facing OTP mailer. Request bodies contain the canonical mailbox.
@@ -78,10 +91,22 @@ class MailerClient {
     }
     final identityId = result['identity_id'];
     final otpGrant = result['otp_grant'];
-    if (identityId is! String ||
-        !RegExp(r'^[0-9a-f]{64}$').hasMatch(identityId) ||
-        otpGrant is! String ||
-        otpGrant.isEmpty) {
+    final vaultPurpose = purpose != MailerOtpPurpose.enroll;
+    if (otpGrant is! String || otpGrant.isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.otpGrantInvalid,
+        'Mailer verify did not return otp_grant',
+      );
+    }
+    if (identityId != null &&
+        (identityId is! String ||
+            !RegExp(r'^[0-9a-f]{64}$').hasMatch(identityId))) {
+      throw PubkeyException(
+        ErrorCodes.otpGrantInvalid,
+        'Mailer verify identity_id is not 64 hex characters',
+      );
+    }
+    if (vaultPurpose && identityId is! String) {
       throw PubkeyException(
         ErrorCodes.otpGrantInvalid,
         'Mailer verify did not return identity_id and otp_grant',
@@ -93,7 +118,10 @@ class MailerClient {
         'Mailer verify must not return a mailbox address',
       );
     }
-    return MailerOtpGrant(identityId: identityId, otpGrant: otpGrant);
+    return MailerOtpGrant(
+      identityId: identityId is String ? identityId : null,
+      otpGrant: otpGrant,
+    );
   }
 
   void _requireBaseUrl() {

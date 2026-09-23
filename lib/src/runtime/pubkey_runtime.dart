@@ -384,13 +384,14 @@ class PubkeyRuntime {
   Future<void> persistMsk(KeyRef key, {required String email}) async {
     final portable = await crypto.exportPrivateKey(key);
     if (!vault.unlocked) {
-      // A vault that didn't already exist is, by definition, brand new —
-      // genesis ("generation: 1"). A future MSK
-      // replacement onto an *existing* vault (recovery, not yet
-      // implemented) must not hit this branch, since it continues the
-      // identity's prior generation counter instead of resetting it.
-      final identityId = await _cachedOrDirectoryIdentity(email);
-      await vault.createVault(identityId);
+      // Directory enroll stores the MSK locally. A vault identity is created
+      // only after a vault OTP grant has stored identity_id. That path must
+      // not call OPRF or upload to the vault host.
+      final bound = await store.getIdentityId();
+      final principal = (bound != null && bound.isNotEmpty)
+          ? bound
+          : _localMskPrincipal();
+      await vault.createVault(principal);
       vault.generation = 1;
     }
     final aek = await store.getAek(crypto) ?? KeyHierarchy.generateAek(crypto);
@@ -401,7 +402,19 @@ class PubkeyRuntime {
     final vek = await store.getVek(crypto) ?? KeyHierarchy.generateVek(crypto);
     await store.setVek(crypto, vek);
     await vault.persist(vek);
-    await client.uploadVault(email: email, mskKey: key, vault: vault, vek: vek);
+    final bound = await store.getIdentityId();
+    if (bound != null && bound.isNotEmpty) {
+      await client.uploadVault(email: email, mskKey: key, vault: vault, vek: vek);
+    }
+  }
+
+  String _localMskPrincipal() {
+    final bytes = crypto.random(16);
+    final hex = StringBuffer();
+    for (final byte in bytes) {
+      hex.write(byte.toRadixString(16).padLeft(2, '0'));
+    }
+    return hex.toString();
   }
 
   /// Applies [mutation] to the vault, persists locally, and uploads as a new
@@ -1497,9 +1510,9 @@ class PubkeyRuntime {
       otp: otp,
       purpose: MailerOtpPurpose.recoveryEnvelope,
     );
-    await store.setIdentityId(grant.identityId);
+    await store.setIdentityId(grant.requireIdentityId);
     bundle = await client.fetchRecoveryEnvelopeWithGrant(
-      identityId: grant.identityId,
+      identityId: grant.requireIdentityId,
       otpGrant: grant.otpGrant,
     );
     final vaultId = bundle.vaultId;

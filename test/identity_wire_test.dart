@@ -72,16 +72,16 @@ void main() {
       otp: '0123456789A',
       purpose: MailerOtpPurpose.enroll,
     );
-    await runtime.store.setIdentityId(grant.identityId);
+    await runtime.store.setIdentityId(grant.requireIdentityId);
     await runtime.store.setVaultId('cd' * 32);
     await runtime.client.enrollMskForIdentity(
-      identityId: grant.identityId,
+      identityId: grant.requireIdentityId,
       vaultId: 'cd' * 32,
       mskPublicKey: Uint8List(32),
     );
     await runtime.client.selectDirectoryKey(email: 'bob@example.com');
     await runtime.client.fetchRecoveryEnvelopeWithGrant(
-      identityId: grant.identityId,
+      identityId: grant.requireIdentityId,
       otpGrant: grant.otpGrant,
     );
 

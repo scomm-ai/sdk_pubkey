@@ -127,7 +127,7 @@ class DiscoveryBackupStore implements VaultBackupStore {
       purpose: MailerOtpPurpose.vaultBackup,
     );
     return client.fetchVaultBackupWithGrant(
-      identityId: grant.identityId,
+      identityId: grant.requireIdentityId,
       otpGrant: grant.otpGrant,
     );
   }
