@@ -260,6 +260,7 @@ class PubkeyClient {
     required String operation,
     required Object payload,
     required KeyRef mskKey,
+    String? baseUrl,
   }) async {
     final principal = _directoryPrincipal(email);
     final envelope = await _signOperation(
@@ -271,7 +272,7 @@ class PubkeyClient {
     );
     return pubkeyRequest(
       dio,
-      joinUrl(writeBaseUrl, '/v1/mutate'),
+      joinUrl(baseUrl ?? writeBaseUrl, '/v1/mutate'),
       method: 'POST',
       body: envelope,
       reconcileReplayAfterConnectionFailure: true,
@@ -725,6 +726,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.reportVaultCoverage,
       payload: {
         'device_id': deviceId,
@@ -871,6 +873,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.listDevices,
       payload: const {},
       mskKey: mskKey,
@@ -884,6 +887,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.revokeDevice,
       payload: {'device_id': deviceId},
       mskKey: mskKey,
@@ -997,6 +1001,7 @@ class PubkeyClient {
     try {
       final response = await mutate(
         email: email,
+        baseUrl: vaultBaseUrl,
         operation: Operations.vaultUpload,
         payload: {
           'generation': nextGeneration,
@@ -1362,6 +1367,7 @@ class PubkeyClient {
   }) async {
     final result = await mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.cancelHighRiskMutation,
       payload: {'mutation_id': mutationId},
       mskKey: mskKey,
@@ -1392,6 +1398,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.setRecoveryEnvelope,
       payload: {
         'vek_envelope': vekEnvelope.toJson(),
@@ -1410,6 +1417,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.setVaultBackup,
       payload: {'backup_json': backupJson},
       mskKey: mskKey,
@@ -1422,6 +1430,7 @@ class PubkeyClient {
   }) {
     return mutate(
       email: email,
+      baseUrl: vaultBaseUrl,
       operation: Operations.deleteVaultBackup,
       payload: const {},
       mskKey: mskKey,
@@ -1725,13 +1734,35 @@ class PubkeyClient {
             'msk_proof': proof,
           };
     assertPubkeyWireHasNoMailbox(url: url, body: body);
-    return pubkeyRequest(
+    final armed = await pubkeyRequest(
       dio,
       url,
       method: 'POST',
       body: body,
       reconcileReplayAfterConnectionFailure: true,
     );
+    final publicKey = mskKey.publicKey;
+    if (directorySha == null &&
+        publicKey != null &&
+        identityId != null &&
+        vaultId != null) {
+      await pubkeyRequest(
+        dio,
+        joinUrl(vaultBaseUrl, '/v1/principals/msk'),
+        method: 'POST',
+        body: {
+          'identity_id': identityId,
+          'vault_id': vaultId,
+          'msk': {
+            'algorithm': mskAlgorithm,
+            'public_key': encodeBase64Url(publicKey),
+          },
+          'msk_proof': proof,
+          if (firstDevice != null) 'first_device': firstDevice,
+        },
+      );
+    }
+    return armed;
   }
 
   Future<dynamic> replaceMskForIdentity({
