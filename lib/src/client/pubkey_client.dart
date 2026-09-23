@@ -181,7 +181,13 @@ class PubkeyClient {
     if (configured.isNotEmpty) return configured;
     return writeFallback.trim();
   }
+
   final Dio dio;
+
+  /// This machine's license-device SKI. Vault upload includes it so the host
+  /// can start the per-machine evaluation and enforce the mailbox cap.
+  /// Download does not use it.
+  static Future<String?> Function()? licenseDeviceIdProvider;
   final String sdkName;
   final String sdkVersion;
 
@@ -579,7 +585,8 @@ class PubkeyClient {
 
   /// List resources for an identity (read host).
   Future<List<DiscoveryResource>> listResources(String identityId) async {
-    final path = '/v1/mailboxes/${encodeMailboxSha256Path(identityId)}/resources';
+    final path =
+        '/v1/mailboxes/${encodeMailboxSha256Path(identityId)}/resources';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) return const [];
     final list = data['resources'];
@@ -852,12 +859,16 @@ class PubkeyClient {
   /// following [downloadCurrentVault] does not spend a one-shot token again.
   Future<Uint8List> fetchArmedMskPublicKey({required String email}) async {
     if (email.trim().isEmpty) {
-      throw PubkeyException(ErrorCodes.invalidEmail, 'A local mailbox label is required');
+      throw PubkeyException(
+          ErrorCodes.invalidEmail, 'A local mailbox label is required');
     }
-    final body = await _authorizedVaultGet(operation: Operations.vaultGetCurrent);
+    final body =
+        await _authorizedVaultGet(operation: Operations.vaultGetCurrent);
     _cachedCurrentVaultResponse = body;
     final raw = body['msk_public_key'] ??
-        (body['vault'] is Map ? (body['vault'] as Map)['msk_public_key'] : null);
+        (body['vault'] is Map
+            ? (body['vault'] as Map)['msk_public_key']
+            : null);
     if (raw is! String) {
       throw PubkeyException(
         ErrorCodes.masterKeyNotArmed,
@@ -999,6 +1010,7 @@ class PubkeyClient {
 
     Map<String, dynamic> result;
     try {
+      final licenseDeviceId = (await licenseDeviceIdProvider?.call())?.trim();
       final response = await mutate(
         email: email,
         baseUrl: vaultBaseUrl,
@@ -1017,6 +1029,8 @@ class PubkeyClient {
           'timestamp': timestamp,
           if (mutationKind != null) 'mutation_kind': mutationKind,
           if (targetDeviceId != null) 'target_device_id': targetDeviceId,
+          if (licenseDeviceId != null && licenseDeviceId.isNotEmpty)
+            'license_device_id': licenseDeviceId,
         },
         mskKey: mskKey,
       );
@@ -1623,8 +1637,7 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     requireMailboxSha256(identityId);
-    final isSigning =
-        purpose == Purposes.signing || purpose == 'verification';
+    final isSigning = purpose == Purposes.signing || purpose == 'verification';
     final resolved = isSigning && keyId != null && keyId.trim().isNotEmpty
         ? (capabilities ?? const <String, dynamic>{'families': {}})
         : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
@@ -1692,15 +1705,15 @@ class PubkeyClient {
     required KeyRef mskKey,
     Map<String, dynamic>? device,
   }) async {
-    final directorySha = email != null && email.trim().isNotEmpty
-        ? emailSha256Hex(email)
-        : null;
+    final directorySha =
+        email != null && email.trim().isNotEmpty ? emailSha256Hex(email) : null;
     if (directorySha == null) {
       requireIdentityId(identityId ?? '');
       requireIdentityId(vaultId ?? '');
     }
     if (otpGrant.trim().isEmpty) {
-      throw PubkeyException(ErrorCodes.otpGrantInvalid, 'otp_grant is required');
+      throw PubkeyException(
+          ErrorCodes.otpGrantInvalid, 'otp_grant is required');
     }
     final proof = await _signOperation(
       operation: Operations.armMsk,
