@@ -11,7 +11,7 @@ dependencies:
     git:
       url: https://github.com/scomm-public/ckvf.git
       path: packages/dart
-      ref: e1081a5fece00878bd65e5dcb9317c9f62df73dd
+      ref: 2965456c9eb89cd89f20511dba247abec952b6d0
   crypto: ^3.0.6
   cryptography: ^2.7.0
   dio: ^5.7.0
