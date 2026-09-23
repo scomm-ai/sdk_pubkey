@@ -28,8 +28,8 @@ void main() {
         return _json({'evaluation': body['blind']});
       }
       if (path.endsWith('/v1/keys')) {
-        expect(options.uri.queryParameters.containsKey('sha256'), isFalse);
-        expect(options.uri.queryParameters['identity_id'], hasLength(64));
+        expect(options.uri.queryParameters.containsKey('identity_id'), isFalse);
+        expect(options.uri.queryParameters['sha256'], hasLength(64));
         return _json({'public_material': null});
       }
       if (path.endsWith('/v1/msk/enroll') ||
@@ -88,7 +88,23 @@ void main() {
     final mailer = seen.where((r) => r.uri.host == 'mailer.test').toList();
     final pubkey = seen.where((r) => r.uri.host == 'pubkey.test').toList();
     expect(mailer, isNotEmpty);
-    expect(mailer.every((r) => jsonEncode(r.data).contains('alice@example.com')), isTrue);
+    expect(
+      mailer.any(
+        (r) =>
+            r.uri.path.endsWith('/otp/request') &&
+            jsonEncode(r.data).contains('alice@example.com'),
+      ),
+      isTrue,
+    );
+    expect(
+      mailer.where((r) => r.uri.path.endsWith('/otp/verify')).every((r) {
+        final body = jsonEncode(r.data);
+        return !body.contains('alice@example.com') &&
+            !body.contains('"email"') &&
+            body.contains('sha256');
+      }),
+      isTrue,
+    );
     expect(pubkey, isNotEmpty);
     for (final request in pubkey) {
       expect(request.uri.toString().contains('@'), isFalse);

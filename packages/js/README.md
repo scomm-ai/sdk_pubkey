@@ -2,7 +2,7 @@
 
 Discovery Protocol **Track A** client for browsers, webviews, and Node.
 
-- `discoverIdentity(identityId)` → `GET /v1/identities/{identity_id}`
+- `discoverMailbox(mailbox)` hashes locally then `GET /v1/mailboxes/{mailboxSha256}`
 - `DiscoveryDocument.selectBestEncryptionKey(capabilities)` → local select
 
 No MSK, Vault, OTP, or hosted sync. Those are Track B (`secmail_pubkey_sdk` Dart today).
@@ -26,9 +26,7 @@ const client = createDiscoveryClient({
   readBaseUrl: "https://discovery.scomm.ai",
 });
 
-const doc = await client.discoverIdentity(
-  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-);
+const doc = await client.discoverMailbox("alice@example.com");
 const key = doc.selectBestEncryptionKey({
   families: { pgp: ["openpgp-cv25519"] },
 });

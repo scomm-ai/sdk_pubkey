@@ -81,7 +81,7 @@ void main() {
       expect(calls.single.uri.toString(), 'https://api.pubkey.test/v1/mutate');
       final body = calls.single.data as Map;
       expect(body['operation'], Operations.setKeys);
-      expect(body['principal'], 'ab' * 32);
+      expect(body['principal'], emailSha256Hex('alice@example.com'));
       expect(body['signature']['algorithm'], 'ed25519');
       expect(body['signature']['value'], isA<String>());
       expect(body['nonce'], isA<String>());
@@ -120,7 +120,7 @@ void main() {
       );
       expect(selected['key_id'], 3);
       expect(seen, contains('/v1/keys?'));
-      expect(seen, contains('identity_id='));
+      expect(seen, contains('sha256='));
       expect(seen, contains('capabilities='));
       expect(seen, contains('purpose=encryption'));
       expect(seen, isNot(contains('principal=')));

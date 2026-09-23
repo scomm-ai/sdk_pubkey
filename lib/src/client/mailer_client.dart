@@ -59,13 +59,13 @@ class MailerClient {
     required String purpose,
   }) async {
     _requireBaseUrl();
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
+    final sha256 = emailSha256Hex(email);
     final result = await pubkeyRequest(
       dio,
       joinUrl(baseUrl, '/v1/otp/verify'),
       method: 'POST',
       body: {
-        'email': canonical,
+        'sha256': sha256,
         'otp': otp.trim(),
         'purpose': purpose,
       },

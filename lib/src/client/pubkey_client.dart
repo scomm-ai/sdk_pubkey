@@ -222,6 +222,16 @@ class PubkeyClient {
     return encodeBase64Url(bytes);
   }
 
+  String _directoryPrincipal(String email) {
+    if (email.trim().isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.invalidEmail,
+        'A local mailbox label is required',
+      );
+    }
+    return emailSha256Hex(email);
+  }
+
   Future<String> _accountPrincipal(String email) async {
     if (email.trim().isEmpty) {
       throw PubkeyException(
@@ -239,7 +249,7 @@ class PubkeyClient {
     required Object payload,
     required KeyRef mskKey,
   }) async {
-    final principal = await _accountPrincipal(email);
+    final principal = _directoryPrincipal(email);
     final envelope = await _signOperation(
       operation: operation,
       principal: principal,
@@ -293,7 +303,7 @@ class PubkeyClient {
         'contentSigningKey or compositePopSigner is required',
       );
     }
-    final principal = await _accountPrincipal(email);
+    final principal = _directoryPrincipal(email);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final nonce = _randomNonce();
 
@@ -369,7 +379,7 @@ class PubkeyClient {
     required String publicMaterial,
     required KeyRef mskKey,
   }) async {
-    final principal = await _accountPrincipal(email);
+    final principal = _directoryPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.requestKeyChallenge,
       principal: principal,
@@ -404,7 +414,7 @@ class PubkeyClient {
     required Map<String, dynamic> decryptProof,
     required KeyRef mskKey,
   }) async {
-    final principal = await _accountPrincipal(email);
+    final principal = _directoryPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.setEncryptionKey,
       principal: principal,
@@ -488,11 +498,11 @@ class PubkeyClient {
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    final id = (identityId != null && identityId.isNotEmpty)
+    final sha256 = (identityId != null && identityId.isNotEmpty)
         ? identityId
-        : await directoryIdentityId(email ?? '');
+        : emailSha256Hex(email ?? '');
     return getBestKeyForIdentity(
-      identityId: id,
+      identityId: sha256,
       purpose: purpose,
       keyId: keyId,
       capabilities: capabilities,
@@ -523,16 +533,27 @@ class PubkeyClient {
     return Map<String, dynamic>.from(selected);
   }
 
-  String encodeIdentityPath(String identityId) {
-    requireIdentityId(identityId);
-    return identityId;
+  String encodeMailboxSha256Path(String mailboxOrSha256) {
+    final sha = _discoveryLocator(mailboxOrSha256);
+    requireMailboxSha256(sha);
+    return sha;
   }
 
-  /// Public discovery document. [mailbox] is blinded locally; the path is
-  /// `/v1/identities/{identity_id}`.
+  String encodeIdentityPath(String identityId) =>
+      encodeMailboxSha256Path(identityId);
+
+  String _discoveryLocator(String mailboxOrSha256) {
+    if (RegExp(r'^[0-9a-f]{64}$').hasMatch(mailboxOrSha256)) {
+      return mailboxOrSha256;
+    }
+    return emailSha256Hex(mailboxOrSha256);
+  }
+
+  /// Public discovery document. [mailbox] is hashed locally; the path is
+  /// `/v1/mailboxes/{mailboxSha256}`.
   Future<DiscoveryDocument> discoverMailbox(String mailbox) async {
-    final identityId = await directoryIdentityId(mailbox);
-    final path = '/v1/identities/${encodeIdentityPath(identityId)}';
+    final sha256 = _discoveryLocator(mailbox);
+    final path = '/v1/mailboxes/${encodeMailboxSha256Path(sha256)}';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) {
       throw PubkeyException(
@@ -545,7 +566,7 @@ class PubkeyClient {
 
   /// List resources for an identity (read host).
   Future<List<DiscoveryResource>> listResources(String identityId) async {
-    final path = '/v1/identities/${encodeIdentityPath(identityId)}/resources';
+    final path = '/v1/mailboxes/${encodeMailboxSha256Path(identityId)}/resources';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) return const [];
     final list = data['resources'];
@@ -563,7 +584,7 @@ class PubkeyClient {
     required String mailbox,
     required Map<String, dynamic> envelope,
   }) {
-    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/resources';
+    final path = '/v1/mailboxes/${encodeMailboxSha256Path(mailbox)}/resources';
     return pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -578,7 +599,7 @@ class PubkeyClient {
     required String mailbox,
     required Map<String, dynamic> envelope,
   }) {
-    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/operations';
+    final path = '/v1/mailboxes/${encodeMailboxSha256Path(mailbox)}/operations';
     return pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -596,7 +617,7 @@ class PubkeyClient {
     Map<String, dynamic>? input,
     String? idempotencyKey,
   }) async {
-    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/challenges';
+    final path = '/v1/mailboxes/${encodeMailboxSha256Path(mailbox)}/challenges';
     final body = <String, dynamic>{
       'type': type,
       'purpose': purpose,
@@ -625,7 +646,7 @@ class PubkeyClient {
     required Map<String, dynamic> response,
   }) async {
     final path =
-        '/v1/identities/${encodeIdentityPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}/responses';
+        '/v1/mailboxes/${encodeMailboxSha256Path(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}/responses';
     final data = await pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -646,7 +667,7 @@ class PubkeyClient {
     required String challengeId,
   }) async {
     final path =
-        '/v1/identities/${encodeIdentityPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}';
+        '/v1/mailboxes/${encodeMailboxSha256Path(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}';
     final data = await pubkeyRequest(dio, joinUrl(writeBaseUrl, path));
     if (data is! Map) {
       throw PubkeyException(
@@ -1564,9 +1585,8 @@ class PubkeyClient {
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    final identityId = await directoryIdentityId(email);
     return getBestKeyForIdentity(
-      identityId: identityId,
+      identityId: emailSha256Hex(email),
       purpose: purpose,
       keyId: keyId,
       capabilities: capabilities,
@@ -1581,7 +1601,7 @@ class PubkeyClient {
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    requireIdentityId(identityId);
+    requireMailboxSha256(identityId);
     final isSigning =
         purpose == Purposes.signing || purpose == 'verification';
     final resolved = isSigning && keyId != null && keyId.trim().isNotEmpty
@@ -1594,7 +1614,7 @@ class PubkeyClient {
       );
     }
     final params = <String, String>{
-      'identity_id': identityId,
+      'sha256': identityId,
       if (!isSigning || resolved.isNotEmpty)
         'capabilities': jsonEncode(resolved),
       if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,

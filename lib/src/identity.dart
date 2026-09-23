@@ -125,6 +125,13 @@ bool isValidEmail(String? email) {
   return _isValidLocalPart(local) && _isValidDomain(domain);
 }
 
+/// Unsalted SHA-256 of the canonical mailbox, lowercase hex. Directory
+/// locator only. Callers MUST pass a mailbox string; do not pre-hash.
+String emailSha256Hex(String email) {
+  final canonical = requireCanonicalEmail(normalizeEmail(email));
+  return bytesToHex(sha256Bytes(canonical));
+}
+
 String requireCanonicalEmail(String? email) {
   if (email == null || email.isEmpty) {
     throw PubkeyException(ErrorCodes.invalidEmail, 'Valid email is required');

@@ -7,7 +7,7 @@ import '../registry.dart';
 class DiscoveryDocument {
   DiscoveryDocument({
     required this.schemaVersion,
-    required this.mailbox,
+    required this.mailboxSha256,
     this.schema,
     this.capabilities = const {},
     this.extensions = const {},
@@ -15,7 +15,7 @@ class DiscoveryDocument {
   });
 
   final String schemaVersion;
-  final String mailbox;
+  final String mailboxSha256;
   final String? schema;
   final Map<String, dynamic> capabilities;
   final Map<String, dynamic> extensions;
@@ -28,7 +28,7 @@ class DiscoveryDocument {
     final ext = json['extensions'];
     return DiscoveryDocument(
       schemaVersion: json['schemaVersion']?.toString() ?? '',
-      mailbox: json['mailbox']?.toString() ?? '',
+      mailboxSha256: json['mailboxSha256']?.toString() ?? '',
       schema: json[r'$schema']?.toString(),
       capabilities: caps is Map
           ? Map<String, dynamic>.from(caps)

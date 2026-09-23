@@ -8,7 +8,8 @@ void main() {
   test('DiscoveryDocument preserves unknown extensions', () {
     final doc = DiscoveryDocument.fromJson({
       'schemaVersion': '1.0',
-      'mailbox': 'alice@example.com',
+      'mailboxSha256':
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       'capabilities': {
         'crypto': {
           'encryption': {
@@ -37,17 +38,17 @@ void main() {
     );
   });
 
-  test('identity path rejects a mailbox address', () {
+  test('mailbox path hashes a mailbox and accepts a digest', () {
     final client = PubkeyClient(
       crypto: DartCryptoProvider(),
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
     );
     expect(
-      () => client.encodeIdentityPath('Alice+tag@Example.COM'),
-      throwsA(isA<PubkeyException>()),
+      client.encodeMailboxSha256Path('Alice+tag@Example.COM'),
+      hasLength(64),
     );
-    expect(client.encodeIdentityPath('ab' * 32), 'ab' * 32);
+    expect(client.encodeMailboxSha256Path('ab' * 32), 'ab' * 32);
   });
 
   test('PubkeyException parses nested error envelope', () {
@@ -99,7 +100,7 @@ void main() {
     final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
     final doc = DiscoveryDocument.fromJson(json);
     expect(doc.schemaVersion, '1.0');
-    expect(doc.mailbox, 'alice@example.com');
+    expect(doc.mailboxSha256, isA<String>());
     expect(doc.encryptionKeys(), isNotEmpty);
     // Public Discovery Documents MUST NOT project verification keys (gated
     // signing fetch). Encryption-only fixtures are expected.
@@ -109,7 +110,8 @@ void main() {
   group('Discovery Document encryption selection', () {
     DiscoveryDocument dualPublishDoc() => DiscoveryDocument.fromJson({
           'schemaVersion': '1.0',
-          'mailbox': 'alice@example.com',
+          'mailboxSha256':
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           'capabilities': {
             'crypto': {
               'encryption': {

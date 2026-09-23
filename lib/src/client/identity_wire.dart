@@ -10,12 +10,7 @@ class IdentityBinding {
   bool get hasIdentity => identityId != null && identityId!.length == 64;
 }
 
-/// Throws when a pubkey request would carry a mailbox address or an
-/// unsalted email digest.
-void assertPubkeyWireHasNoMailbox({
-  required String url,
-  Object? body,
-}) {
+void assertNoMailboxAddress({required String url, Object? body}) {
   if (url.contains('@')) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,
@@ -23,15 +18,7 @@ void assertPubkeyWireHasNoMailbox({
     );
   }
   if (body is! Map) return;
-  const denied = {
-    'email',
-    'address',
-    'mailbox',
-    'rfc5322',
-    'email_sha256',
-    'sha256',
-  };
-  for (final key in denied) {
+  for (final key in const {'email', 'address', 'mailbox', 'rfc5322'}) {
     if (body.containsKey(key)) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
@@ -41,13 +28,46 @@ void assertPubkeyWireHasNoMailbox({
   }
 }
 
-final _identityIdPattern = RegExp(r'^[0-9a-f]{64}$');
+/// Discovery may carry `sha256`. It must not carry an address.
+void assertDiscoveryWire({required String url, Object? body}) {
+  assertNoMailboxAddress(url: url, body: body);
+}
+
+/// Vault/MSK/pairing must not carry an address or a directory hash.
+void assertVaultWire({required String url, Object? body}) {
+  assertNoMailboxAddress(url: url, body: body);
+  if (body is! Map) return;
+  for (final key in const {'sha256', 'email_sha256', 'mailboxSha256'}) {
+    if (body.containsKey(key)) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'Vault request must not include $key',
+      );
+    }
+  }
+}
+
+/// @deprecated Use [assertDiscoveryWire] or [assertVaultWire].
+void assertPubkeyWireHasNoMailbox({required String url, Object? body}) {
+  assertNoMailboxAddress(url: url, body: body);
+}
+
+final _hex64 = RegExp(r'^[0-9a-f]{64}$');
 
 void requireIdentityId(String identityId) {
-  if (!_identityIdPattern.hasMatch(identityId)) {
+  if (!_hex64.hasMatch(identityId)) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,
       'identity_id must be 64 lowercase hex characters',
+    );
+  }
+}
+
+void requireMailboxSha256(String sha256) {
+  if (!_hex64.hasMatch(sha256)) {
+    throw PubkeyException(
+      ErrorCodes.invalidRequest,
+      'mailboxSha256 must be 64 lowercase hex characters',
     );
   }
 }

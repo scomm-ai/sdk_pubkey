@@ -14,6 +14,15 @@ export function normalizeEmail(email: string | null | undefined): string {
   return `${local}@${domain}`;
 }
 
+export async function mailboxSha256Hex(email: string): Promise<string> {
+  const canonical = normalizeEmail(email);
+  const bytes = new TextEncoder().encode(canonical);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;

@@ -23,7 +23,7 @@ describe("DiscoveryDocument", () => {
   it("preserves unknown extensions", () => {
     const doc = DiscoveryDocument.fromJson({
       schemaVersion: "1.0",
-      identityId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      mailboxSha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       capabilities: {
         crypto: {
           encryption: { keys: [{ family: "openpgp", keyId: "1" }] },
@@ -48,7 +48,7 @@ describe("DiscoveryDocument", () => {
     const doc = DiscoveryDocument.fromJson(json);
     assert.equal(doc.schemaVersion, "1.0");
     assert.equal(
-      doc.identityId,
+      doc.mailboxSha256,
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
     assert.ok(doc.encryptionKeys().length > 0);
@@ -60,7 +60,7 @@ describe("encryption selection", () => {
   function dualPublishDoc(): DiscoveryDocument {
     return DiscoveryDocument.fromJson({
       schemaVersion: "1.0",
-      identityId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      mailboxSha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       capabilities: {
         crypto: {
           encryption: {
@@ -119,12 +119,26 @@ describe("encryption selection", () => {
   });
 });
 
-describe("identity path", () => {
-  it("rejects a mailbox address", () => {
+describe("mailbox hash", () => {
+  it("discoverMailbox hashes then GETs /v1/mailboxes/{sha256}", async () => {
+    const fixture = loadJson("mailbox-discovery.json");
     const client = createDiscoveryClient({
       readBaseUrl: "https://discovery.test",
+      fetch: async (input) => {
+        const url = String(input);
+        assert.match(url, /\/v1\/mailboxes\/[0-9a-f]{64}$/);
+        assert.ok(!url.includes("@"));
+        return new Response(JSON.stringify(fixture), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
     });
-    assert.throws(() => client.encodeIdentityPath("Alice+tag@Example.COM"));
+    const doc = await client.discoverMailbox("alice@example.com");
+    assert.equal(
+      doc.mailboxSha256,
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
   });
 });
 
@@ -137,23 +151,6 @@ describe("DiscoveryClient", () => {
     );
   });
 
-  it("discoverIdentity GETs /v1/identities/{identity_id}", async () => {
-    const fixture = loadJson("mailbox-discovery.json");
-    const identityId = "a".repeat(64);
-    const client = createDiscoveryClient({
-      readBaseUrl: "https://discovery.test",
-      fetch: async (input) => {
-        const url = String(input);
-        assert.ok(url.includes(`/v1/identities/${identityId}`));
-        return new Response(JSON.stringify(fixture), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    });
-    const doc = await client.discoverIdentity(identityId);
-    assert.equal(doc.identityId, identityId);
-  });
 
   it("signing-vectors fixture is present for Dart/server parity gate", () => {
     const fixture = loadJson("signing-vectors.json") as {
