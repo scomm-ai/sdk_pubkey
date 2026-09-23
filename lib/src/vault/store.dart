@@ -86,6 +86,22 @@ abstract class DeviceKeyStore implements VaultStore {
   /// Returns this device's local id, generating and persisting one on first
   /// use (idempotent).
   Future<String> ensureDeviceId(CryptoProvider crypto);
+
+  /// OPRF `identity_id` (64 hex). Null until enroll verify or rebind.
+  Future<String?> getIdentityId();
+
+  Future<void> setIdentityId(String identityId);
+
+  /// Random public vault locator. Null until enroll verify or rebind.
+  Future<String?> getVaultId();
+
+  Future<void> setVaultId(String vaultId);
+
+  /// Local record that a recovery envelope was stored. v2 does not probe
+  /// pubkey for existence.
+  Future<bool> hasLocalRecoveryEnvelope();
+
+  Future<void> setLocalRecoveryEnvelope(bool present);
 }
 
 /// Staged VEK and/or AEK waiting to replace the live device envelopes
@@ -105,6 +121,9 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
   Uint8List? _aek;
   PendingEnvelopeRotation? _pendingRotation;
   String? _deviceId;
+  String? _identityId;
+  String? _vaultId;
+  bool _localRecoveryEnvelope = false;
 
   @override
   Future<Uint8List> ensureDkek(CryptoProvider crypto) async {
@@ -172,6 +191,30 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
   }
 
   @override
+  Future<String?> getIdentityId() async => _identityId;
+
+  @override
+  Future<void> setIdentityId(String identityId) async {
+    _identityId = identityId;
+  }
+
+  @override
+  Future<String?> getVaultId() async => _vaultId;
+
+  @override
+  Future<void> setVaultId(String vaultId) async {
+    _vaultId = vaultId;
+  }
+
+  @override
+  Future<bool> hasLocalRecoveryEnvelope() async => _localRecoveryEnvelope;
+
+  @override
+  Future<void> setLocalRecoveryEnvelope(bool present) async {
+    _localRecoveryEnvelope = present;
+  }
+
+  @override
   Future<void> clear() async {
     await super.clear();
     _dkek = null;
@@ -179,5 +222,8 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
     _aek = null;
     _pendingRotation = null;
     _deviceId = null;
+    _identityId = null;
+    _vaultId = null;
+    _localRecoveryEnvelope = false;
   }
 }

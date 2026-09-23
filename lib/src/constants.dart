@@ -1,4 +1,7 @@
 const int protocolVersion = 1;
+
+/// Email-blind identity. Canonical `principal` is `identity_id` hex.
+const int protocolVersionV2 = 2;
 const String protocolName = 'SComm/Pubkey';
 const int timestampWindowMs = 5 * 60 * 1000;
 const int nonceReplayTtlMs = timestampWindowMs + 60 * 1000;
@@ -31,10 +34,13 @@ abstract final class Operations {
   static const completeDeviceEnrollment = 'complete_device_enrollment';
   static const vaultUpload = 'vault_upload';
   static const vaultGetCurrent = 'vault_get_current';
+  static const vaultGetGeneration = 'vault_get_generation';
+  static const vaultGetPendingMutations = 'vault_get_pending_mutations';
   static const cancelHighRiskMutation = 'cancel_high_risk_mutation';
   static const setRecoveryEnvelope = 'set_recovery_envelope';
   static const setVaultBackup = 'set_vault_backup';
   static const deleteVaultBackup = 'delete_vault_backup';
+  static const rebindIdentity = 'rebind_identity';
 }
 
 /// SComm: the user's choice of recovery-code format at setup

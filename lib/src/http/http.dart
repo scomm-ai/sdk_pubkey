@@ -77,6 +77,7 @@ Future<dynamic> pubkeyRequest(
   String url, {
   String method = 'GET',
   Object? body,
+  Map<String, String>? headers,
   bool reconcileReplayAfterConnectionFailure = false,
 }) async {
   Object? lastError;
@@ -91,6 +92,7 @@ Future<dynamic> pubkeyRequest(
           headers: {
             'Accept': 'application/json',
             if (body != null) 'Content-Type': 'application/json',
+            ...?headers,
           },
         ),
       );

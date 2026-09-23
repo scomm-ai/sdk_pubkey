@@ -678,6 +678,7 @@ class Vault {
     return {
       'vault_format_version': vaultFormatVersion,
       'wrap_version': vaultWrapVersionV1,
+      'generation': generation,
       'encryption': {
         'name': vaultAead,
         'iv': encodeBase64Url(wrapped.iv),

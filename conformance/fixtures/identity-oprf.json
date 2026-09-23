@@ -1,0 +1,20 @@
+{
+  "suite": "OPRF(ristretto255, SHA-512)",
+  "rfc": "9497",
+  "mode": "0x00",
+  "identifier": "ristretto255-SHA512",
+  "contextString": "OPRFV1-\\x00-ristretto255-SHA512",
+  "info": "Scomm/Pubkey/identity/v1",
+  "identityId": "leftmost 32 bytes of Finalize, lowercase hex (64 chars)",
+  "input": "UTF-8 canonical mailbox (normalizeEmail). Not sent to pubkey.",
+  "vectors": [
+    {
+      "name": "RFC 9497 A.1.1 test vector 1",
+      "inputHex": "00",
+      "blindHex": "64d37aed22a27f5191de1c1d69fadb899d8862b58eb4220029e036ec4c1f6706",
+      "blindedElementHex": "609a0ae68c15a3cf6903766461307e5c8bb2f95e7e6550e1ffa2dc99e412803c",
+      "evaluationElementHex": "7ec6578ae5120958eb2db1745758ff379e77cb64fe77b0b2d8cc917ea0869c7e",
+      "outputHex": "527759c3d9366f277d8c6020418d96bb393ba2afb20ff90df23fb7708264e2f3ab9135e3bd69955851de4b1f9fe8a0973396719b7912ba9ee8aa7d0b5e24bcf6"
+    }
+  ]
+}

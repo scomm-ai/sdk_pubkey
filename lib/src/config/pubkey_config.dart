@@ -9,6 +9,10 @@ abstract final class PubkeyConfig {
   /// Write tier — MSK enroll/replace and signed mutations.
   static const writeBaseUrl = String.fromEnvironment('PUBKEY_WRITE_BASE_URL');
 
+  /// OTP mailer. Empty unless `PUBKEY_MAILER_BASE_URL` is set. Only the
+  /// mailer may receive a plaintext mailbox.
+  static const mailerBaseUrl = String.fromEnvironment('PUBKEY_MAILER_BASE_URL');
+
   /// Returns [value] when it is a non-empty origin; otherwise throws.
   ///
   /// Empty / omitted config must not fall back to a default host.

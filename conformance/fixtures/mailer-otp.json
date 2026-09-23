@@ -1,0 +1,32 @@
+{
+  "host": "mailer",
+  "seesPlaintextEmail": true,
+  "otp": "11-character Base62 (0-9A-Za-z)",
+  "brand": "Scomm.AI",
+  "endpoints": {
+    "POST /v1/otp/request": {
+      "body": {
+        "email": "<canonical>",
+        "purpose": "enroll|replace_msk|recovery_envelope|recovery_generation"
+      },
+      "response": {
+        "status": 202,
+        "body": { "ok": true },
+        "uniform": "Same success class whether or not a vault exists"
+      }
+    },
+    "POST /v1/otp/verify": {
+      "body": {
+        "email": "<canonical>",
+        "otp": "<11 Base62>",
+        "purpose": "enroll|replace_msk|recovery_envelope|recovery_generation"
+      },
+      "success": {
+        "identity_id": "<64 lowercase hex>",
+        "otp_grant": "<jws>"
+      },
+      "grantClaimsExclude": ["email", "mailbox", "address"],
+      "failure": "otp_invalid"
+    }
+  }
+}

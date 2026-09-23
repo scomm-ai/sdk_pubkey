@@ -71,6 +71,8 @@ class PairingSessionStatus {
     this.aekEnvelope,
     this.confirmationTag,
     this.mskSignature,
+    this.vaultId,
+    this.pairingReadToken,
   });
 
   final String sessionId;
@@ -84,6 +86,8 @@ class PairingSessionStatus {
   final WrappedKey? aekEnvelope;
   final WrappedKey? confirmationTag;
   final Uint8List? mskSignature;
+  final String? vaultId;
+  final String? pairingReadToken;
 
   factory PairingSessionStatus.fromJson(Map<String, dynamic> json) {
     if (json.containsKey('b_ephemeral_public_key') ||
@@ -118,6 +122,8 @@ class PairingSessionStatus {
           ? WrappedKey.fromJson(Map<String, dynamic>.from(tagRaw))
           : null,
       mskSignature: sigRaw is String ? decodeBase64Url(sigRaw) : null,
+      vaultId: json['vault_id'] as String?,
+      pairingReadToken: json['pairing_read_token'] as String?,
     );
   }
 }

@@ -84,6 +84,10 @@ abstract final class ErrorCodes {
   /// The host was contacted but the request timed out.
   static const requestTimeout = 'request_timeout';
 
+  static const otpGrantInvalid = 'otp_grant_invalid';
+  static const pairingReadTokenInvalid = 'pairing_read_token_invalid';
+  static const identityRebindRequired = 'identity_rebind_required';
+
   static const List<String> all = [
     invalidSignature,
     unknownPrincipal,
@@ -137,6 +141,9 @@ abstract final class ErrorCodes {
     pubkeyUnreachable,
     httpsCouldNotBeEstablished,
     requestTimeout,
+    otpGrantInvalid,
+    pairingReadTokenInvalid,
+    identityRebindRequired,
   ];
 }
 

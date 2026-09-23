@@ -5,7 +5,11 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../canonical.dart';
+import '../client/identity_wire.dart';
+import '../client/mailer_client.dart';
 import '../client/pubkey_client.dart';
+import '../config/pubkey_config.dart';
+import '../identity_mode.dart';
 import '../constants.dart';
 import '../crypto/dart_crypto.dart';
 import '../crypto/provider.dart';
@@ -127,13 +131,20 @@ class PubkeyRuntime {
     required this.vault,
     required this.store,
     required this.client,
-  });
+    required this.mailer,
+  }) {
+    client.loadIdentityBinding = () async => IdentityBinding(
+          identityId: await store.getIdentityId(),
+          vaultId: await store.getVaultId(),
+        );
+  }
 
   final String accountEmail;
   final DartCryptoProvider crypto;
   final Vault vault;
   final DeviceKeyStore store;
   final PubkeyClient client;
+  final MailerClient mailer;
 
   KeyRef? mskKey;
   KeyRef? pendingMsk;
@@ -334,7 +345,32 @@ class PubkeyRuntime {
         purpose: Purposes.masterSigning,
       ),
     );
+    if (PubkeyIdentityMode.v2) {
+      await rebindIdentityIfNeeded();
+    }
     return mskKey!;
+  }
+
+  /// Binds this mailbox to an OPRF `identity_id` without uploading the
+  /// address. No-op until a local vault and MSK exist and v2 is on.
+  Future<void> rebindIdentityIfNeeded() async {
+    if (!PubkeyIdentityMode.v2) return;
+    final existing = await store.getIdentityId();
+    if (existing != null && existing.isNotEmpty) return;
+    final record = await store.load();
+    if (record == null) return;
+    final key = mskKey;
+    if (key == null) return;
+    final identityId = await client.directoryIdentityId(accountEmail);
+    final vaultId = await store.getVaultId() ?? client.mintVaultId();
+    await client.rebindIdentity(
+      email: accountEmail,
+      identityId: identityId,
+      vaultId: vaultId,
+      mskKey: key,
+    );
+    await store.setIdentityId(identityId);
+    await store.setVaultId(vaultId);
   }
 
   /// AEK-wraps the MSK private key inside the Vault, then
@@ -542,8 +578,19 @@ class PubkeyRuntime {
     } else {
       password = DevicePairing.generateHighEntropyPassword(crypto);
     }
-    final locator =
-        emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
+    final String locator;
+    if (PubkeyIdentityMode.v2) {
+      final identityId = await store.getIdentityId();
+      if (identityId == null || identityId.isEmpty) {
+        throw PubkeyException(
+          ErrorCodes.identityRebindRequired,
+          'Pairing needs a local identity_id',
+        );
+      }
+      locator = identityId;
+    } else {
+      locator = emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
+    }
     final sid = DevicePairing.pairingSid(
       sessionId: sessionId,
       identityLocator: locator,
@@ -555,15 +602,25 @@ class PubkeyRuntime {
       ci: DevicePairing.pairingCi(locator),
     );
     final deviceId = await store.ensureDeviceId(crypto);
-    final created = await client.createPairingSession(
-      sessionId: sessionId,
-      email: email,
-      deviceName: deviceName,
-      requestedTier: requestedTier,
-      bPakeElement: cpace.publicElement,
-      deviceId: deviceId,
-      expiresIn: expiresInSeconds,
-    );
+    final created = PubkeyIdentityMode.v2
+        ? await client.createPairingSessionForIdentity(
+            sessionId: sessionId,
+            identityId: locator,
+            deviceName: deviceName,
+            requestedTier: requestedTier,
+            bPakeElement: cpace.publicElement,
+            deviceId: deviceId,
+            expiresIn: expiresInSeconds,
+          )
+        : await client.createPairingSession(
+            sessionId: sessionId,
+            email: email,
+            deviceName: deviceName,
+            requestedTier: requestedTier,
+            bPakeElement: cpace.publicElement,
+            deviceId: deviceId,
+            expiresIn: expiresInSeconds,
+          );
     final expiresAtRaw = created['expires_at'];
     final expiresAt = expiresAtRaw is String
         ? DateTime.parse(expiresAtRaw).toUtc()
@@ -605,11 +662,16 @@ class PubkeyRuntime {
   }) async {
     PairingSessionStatus status;
     while (true) {
-      status = await client.getPairingSession(
-        sessionId: sessionId,
-        emailSha256Hex: locator,
-        retrieverDeviceId: deviceId,
-      );
+      status = PubkeyIdentityMode.v2
+          ? await client.getPairingSessionForIdentity(
+              sessionId: sessionId,
+              retrieverDeviceId: deviceId,
+            )
+          : await client.getPairingSession(
+              sessionId: sessionId,
+              emailSha256Hex: locator,
+              retrieverDeviceId: deviceId,
+            );
       if (status.state == PairingSessionState.responded) break;
       if (status.state == PairingSessionState.completed) {
         throw PubkeyException(
@@ -635,6 +697,23 @@ class PubkeyRuntime {
         ErrorCodes.pairingProtocolUnsupported,
         'Pairing response missing CPace v2 fields',
       );
+    }
+
+    if (PubkeyIdentityMode.v2) {
+      final vaultId = status.vaultId;
+      final token = status.pairingReadToken;
+      if (vaultId == null ||
+          vaultId.isEmpty ||
+          token == null ||
+          token.isEmpty) {
+        throw PubkeyException(
+          ErrorCodes.pairingReadTokenInvalid,
+          'Pairing response did not include vault_id and pairing_read_token',
+        );
+      }
+      await store.setIdentityId(locator);
+      await store.setVaultId(vaultId);
+      client.pendingPairingReadToken = token;
     }
 
     final mskPublic = await client.fetchArmedMskPublicKey(email: email);
@@ -699,16 +778,31 @@ class PubkeyRuntime {
     await vault.persist(transfer.vek);
   }
 
+  Future<String> _pairingLocator(String email) async {
+    if (!PubkeyIdentityMode.v2) {
+      return emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
+    }
+    final identityId = await store.getIdentityId();
+    if (identityId == null || identityId.isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.identityRebindRequired,
+        'Pairing needs a local identity_id',
+      );
+    }
+    return identityId;
+  }
+
   Future<PendingPairingRequest> fetchPendingPairingRequest({
     required String sessionId,
     required String email,
   }) async {
-    final emailHash =
-        emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
-    final status = await client.getPairingSession(
-      sessionId: sessionId,
-      emailSha256Hex: emailHash,
-    );
+    final locator = await _pairingLocator(email);
+    final status = PubkeyIdentityMode.v2
+        ? await client.getPairingSessionForIdentity(sessionId: sessionId)
+        : await client.getPairingSession(
+            sessionId: sessionId,
+            emailSha256Hex: locator,
+          );
     if (status.state != PairingSessionState.pending) {
       throw PubkeyException(
         ErrorCodes.pairingSessionAlreadyResponded,
@@ -761,8 +855,7 @@ class PubkeyRuntime {
       );
     }
 
-    final locator =
-        emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
+    final locator = await _pairingLocator(email);
     final sid = DevicePairing.pairingSid(
       sessionId: request.sessionId,
       identityLocator: locator,
@@ -802,15 +895,27 @@ class PubkeyRuntime {
     final msk = await requireMsk();
     final mskSignature = await crypto.sign(msk, transcript);
 
-    await client.respondToPairingSession(
-      sessionId: request.sessionId,
-      emailSha256Hex: locator,
-      aPakeElement: responded.publicElement,
-      vekEnvelope: envelopes.vekEnvelope,
-      aekEnvelope: envelopes.aekEnvelope,
-      confirmationTag: confirmationTag,
-      mskSignature: mskSignature,
-    );
+    if (PubkeyIdentityMode.v2) {
+      await client.respondToPairingSessionForIdentity(
+        sessionId: request.sessionId,
+        identityId: locator,
+        aPakeElement: responded.publicElement,
+        vekEnvelope: envelopes.vekEnvelope,
+        aekEnvelope: envelopes.aekEnvelope,
+        confirmationTag: confirmationTag,
+        mskSignature: mskSignature,
+      );
+    } else {
+      await client.respondToPairingSession(
+        sessionId: request.sessionId,
+        emailSha256Hex: locator,
+        aPakeElement: responded.publicElement,
+        vekEnvelope: envelopes.vekEnvelope,
+        aekEnvelope: envelopes.aekEnvelope,
+        confirmationTag: confirmationTag,
+        mskSignature: mskSignature,
+      );
+    }
 
     final deadline =
         DateTime.now().toUtc().add(Duration(seconds: completionTimeoutSeconds));
@@ -1403,6 +1508,7 @@ class PubkeyRuntime {
       vekEnvelope: vekEnvelope,
       aekEnvelope: aekEnvelope,
     );
+    await store.setLocalRecoveryEnvelope(true);
 
     return recoveryCode;
   }
@@ -1412,7 +1518,13 @@ class PubkeyRuntime {
   /// key material — this is meant to be callable from a brand-new device
   /// that hasn't recovered anything yet.
   Future<void> requestRecoveryCodeOtp({required String email}) {
-    return client.requestRecoveryEnvelopeOtp(email: email);
+    if (!PubkeyIdentityMode.v2) {
+      return client.requestRecoveryEnvelopeOtp(email: email);
+    }
+    return mailer.requestOtp(
+      email: email,
+      purpose: MailerOtpPurpose.recoveryEnvelope,
+    );
   }
 
   /// Recovery via recovery code — preserves the old
@@ -1440,7 +1552,21 @@ class PubkeyRuntime {
     required String deviceName,
   }) async {
     final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final bundle = await client.fetchRecoveryEnvelope(email: email, otp: otp);
+    final RecoveryEnvelopeBundle bundle;
+    if (PubkeyIdentityMode.v2) {
+      final grant = await mailer.verifyOtp(
+        email: canonical,
+        otp: otp,
+        purpose: MailerOtpPurpose.recoveryEnvelope,
+      );
+      await store.setIdentityId(grant.identityId);
+      bundle = await client.fetchRecoveryEnvelopeWithGrant(
+        identityId: grant.identityId,
+        otpGrant: grant.otpGrant,
+      );
+    } else {
+      bundle = await client.fetchRecoveryEnvelope(email: email, otp: otp);
+    }
 
     final vek = await RecoveryCode.unwrapRecovery(crypto, recoveryCode, bundle.vekEnvelope);
     Uint8List? aek;
@@ -1765,7 +1891,10 @@ class PubkeyRuntime {
     await _rotateVek(email: email, msk: msk);
 
     String? newRecoveryCode;
-    if (await client.hasRecoveryEnvelope(email: email)) {
+    final hasEnvelope = PubkeyIdentityMode.v2
+        ? await store.hasLocalRecoveryEnvelope()
+        : await client.hasRecoveryEnvelope(email: email);
+    if (hasEnvelope) {
       final scope =
           await store.isFullAuthority() ? RecoveryScopes.full : RecoveryScopes.readOnly;
       newRecoveryCode = await setupRecoveryCode(
@@ -1995,6 +2124,7 @@ PubkeyRuntime createPubkeyRuntime(
   DeviceKeyStore? store,
   String? readBaseUrl,
   String? writeBaseUrl,
+  String? mailerBaseUrl,
   bool rfc9980Ready = true,
 }) {
   final crypto = DartCryptoProvider();
@@ -2027,6 +2157,10 @@ PubkeyRuntime createPubkeyRuntime(
     vault: vault,
     store: resolvedStore,
     client: client,
+    mailer: MailerClient(
+      baseUrl: mailerBaseUrl ?? PubkeyConfig.mailerBaseUrl,
+      dio: dio,
+    ),
   );
 }
 
