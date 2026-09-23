@@ -268,7 +268,11 @@ class PubkeyClient {
     required KeyRef mskKey,
     String? baseUrl,
   }) async {
-    final principal = _directoryPrincipal(email);
+    final target = (baseUrl ?? writeBaseUrl).trim();
+    final vaultTarget = vaultBaseUrl.trim();
+    final principal = (vaultTarget.isNotEmpty && target == vaultTarget)
+        ? await _accountPrincipal(email)
+        : _directoryPrincipal(email);
     final envelope = await _signOperation(
       operation: operation,
       principal: principal,
@@ -278,7 +282,7 @@ class PubkeyClient {
     );
     return pubkeyRequest(
       dio,
-      joinUrl(baseUrl ?? writeBaseUrl, '/v1/mutate'),
+      joinUrl(target, '/v1/mutate'),
       method: 'POST',
       body: envelope,
       reconcileReplayAfterConnectionFailure: true,
@@ -1963,9 +1967,10 @@ class PubkeyClient {
       payload: const {},
       key: mskKey,
     );
+    // Vault holds MSK + authorized devices after the discovery/vault split.
     return pubkeyRequest(
       dio,
-      joinUrl(writeBaseUrl, '/v1/me'),
+      joinUrl(vaultBaseUrl, '/v1/me'),
       method: 'POST',
       body: envelope,
     );
