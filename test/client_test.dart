@@ -61,6 +61,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final result = await client.setKeys(
         email: 'alice@example.com',
@@ -80,7 +81,7 @@ void main() {
       expect(calls.single.uri.toString(), 'https://api.pubkey.test/v1/mutate');
       final body = calls.single.data as Map;
       expect(body['operation'], Operations.setKeys);
-      expect(body['principal'], '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976');
+      expect(body['principal'], 'ab' * 32);
       expect(body['signature']['algorithm'], 'ed25519');
       expect(body['signature']['value'], isA<String>());
       expect(body['nonce'], isA<String>());
@@ -106,8 +107,10 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final selected = await client.getBestKey(
         email: 'alice@example.com',
+        identityId: 'ab' * 32,
         purpose: 'encryption',
         capabilities: {
           'families': {
@@ -117,7 +120,7 @@ void main() {
       );
       expect(selected['key_id'], 3);
       expect(seen, contains('/v1/keys?'));
-      expect(seen, contains('sha256='));
+      expect(seen, contains('identity_id='));
       expect(seen, contains('capabilities='));
       expect(seen, contains('purpose=encryption'));
       expect(seen, isNot(contains('principal=')));
@@ -131,6 +134,7 @@ void main() {
         readBaseUrl: 'https://pubkey.test',
         writeBaseUrl: 'https://api.pubkey.test',
       );
+      client.bindIdentity();
       final caps = await client.discoveryCapabilities();
       expect(caps['families'], isEmpty);
     });
@@ -156,8 +160,10 @@ void main() {
         writeBaseUrl: 'http://127.0.0.1:3000',
         dio: dio,
       );
+      client.bindIdentity();
       final selected = await client.getBestKey(
         email: 'alice@example.com',
+        identityId: 'ab' * 32,
         purpose: 'encryption',
         capabilities: {
           'families': {
@@ -193,6 +199,7 @@ void main() {
           writeBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
+      client.bindIdentity();
 
         final result = await client.setKeys(
           email: 'alice@example.com',
@@ -228,6 +235,7 @@ void main() {
           writeBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
+      client.bindIdentity();
 
         try {
           await client.setKeys(
@@ -301,6 +309,7 @@ void main() {
           readBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
+      client.bindIdentity();
 
         final result = await client.uploadVault(
           email: 'alice@example.com',
@@ -333,6 +342,7 @@ void main() {
         writeBaseUrl: 'http://127.0.0.1:3000',
         dio: dio,
       );
+      client.bindIdentity();
       try {
         await client.getBestKey(
           email: 'alice@example.com',
@@ -365,13 +375,17 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
-      await client.enrollMsk(
-        email: 'alice@example.com',
+      client.bindIdentity();
+      await client.enrollMskForIdentity(
+        identityId: 'ab' * 32,
+        vaultId: 'cd' * 32,
         mskPublicKey: msk.publicKey!,
       );
       expect(seen.uri.toString(), 'https://api.pubkey.test/v1/msk/enroll');
       expect(seen.method, 'POST');
-      expect(seen.data['email'], 'alice@example.com');
+      expect(seen.data.containsKey('email'), isFalse);
+      expect(seen.data['identity_id'], 'ab' * 32);
+      expect(seen.data['vault_id'], 'cd' * 32);
       expect(seen.data['msk']['algorithm'], 'ed25519');
     });
 
@@ -407,6 +421,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final result = await client.uploadVault(
         email: 'alice@example.com',
@@ -426,7 +441,7 @@ void main() {
       final signature = decodeBase64Url(sentPayload!['msk_signature'] as String);
       final verifyBytes = canonicalVaultRecordBytes(
         protocolVersion: protocolVersion,
-        identityId: '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976',
+        identityId: 'ab' * 32,
         generation: 1,
         ciphertextHash: decodeBase64Url(sentPayload!['ciphertext_hash'] as String),
         previousGenerationHash: null,
@@ -461,6 +476,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final vek = KeyHierarchy.generateVek(crypto);
       await client.uploadVault(
@@ -498,7 +514,7 @@ void main() {
         () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
 
       // Build a plausible generation 1 record the way uploadVault would.
       final source = Vault(crypto: crypto);
@@ -551,6 +567,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto);
 
       final generation = await client.downloadCurrentVault(
@@ -590,6 +607,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto);
 
       expect(
@@ -612,7 +630,7 @@ void main() {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
       final wrongSigner = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
       final ciphertext = Uint8List.fromList([9, 8, 7]);
       final ciphertextHash = sha256Bytes(ciphertext);
       final iv = Uint8List(12);
@@ -652,6 +670,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       expect(
         () => client.downloadCurrentVault(
@@ -680,7 +699,7 @@ void main() {
       // integrity (already verified above this point) matters.
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
 
       final source = Vault(crypto: crypto);
       await source.createVault(principal);
@@ -732,6 +751,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto)
         ..generation = 1
         ..lastCiphertextHash = Uint8List.fromList(List.filled(32, 9));
@@ -752,7 +772,7 @@ void main() {
         'device already applied', () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
       final ciphertext = Uint8List.fromList([9, 8, 7]);
       final ciphertextHash = sha256Bytes(ciphertext);
       final iv = Uint8List(12);
@@ -796,6 +816,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto)
         ..generation = 6
         ..lastCiphertextHash = Uint8List.fromList(List.filled(32, 9));
@@ -821,7 +842,7 @@ void main() {
         'already this device\'s own last-known generation', () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
       final ciphertext = Uint8List.fromList([9, 8, 7]);
       final ciphertextHash = sha256Bytes(ciphertext);
       final iv = Uint8List(12);
@@ -866,6 +887,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto)..lastCiphertextHash = ciphertextHash;
 
       final generation = await client.downloadCurrentVault(
@@ -893,6 +915,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       final dest = Vault(crypto: crypto);
 
       final generation = await client.downloadCurrentVault(
@@ -912,7 +935,7 @@ void main() {
       final crypto = DartCryptoProvider();
       final oldMsk = await crypto.generateSigningKey('ed25519');
       final currentMsk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
 
       final source = Vault(crypto: crypto);
       await source.createVault(principal);
@@ -975,6 +998,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final entries = await client.downloadVaultGeneration(
         email: 'alice@example.com',
@@ -984,7 +1008,7 @@ void main() {
 
       expect(
         seenPath,
-        '/v1/vault/${emailSha256Hex('alice@example.com')}/generation/2',
+        '/v1/vault/${'cd' * 32}/generation/2',
       );
       expect(entries, isNotNull);
       expect(entries!.single.fingerprint, 'old-key-1');
@@ -995,7 +1019,7 @@ void main() {
       final crypto = DartCryptoProvider();
       final oldMsk = await crypto.generateSigningKey('ed25519');
       final unrelatedMsk = await crypto.generateSigningKey('ed25519');
-      final principal = '9a28dce8-36a8-8cad-a0e2-8eaaa8c6d976';
+      final principal = 'ab' * 32;
 
       final source = Vault(crypto: crypto);
       await source.createVault(principal);
@@ -1041,6 +1065,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       expect(
         () => client.downloadVaultGeneration(
@@ -1068,6 +1093,7 @@ void main() {
         readBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final entries = await client.downloadVaultGeneration(
         email: 'alice@example.com',
@@ -1109,6 +1135,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final result = await client.uploadVault(
         email: 'alice@example.com',
@@ -1146,6 +1173,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final result = await client.uploadVault(
         email: 'alice@example.com',
@@ -1185,6 +1213,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final mutations = await client.fetchPendingHighRiskMutations(
         email: 'alice@example.com',
@@ -1211,6 +1240,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final mutations = await client.fetchPendingHighRiskMutations(
         email: 'alice@example.com',
@@ -1235,6 +1265,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final result = await client.cancelHighRiskMutation(
         email: 'alice@example.com',
@@ -1277,6 +1308,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final info = await client.fetchCurrentVaultGenerationInfo(
         email: 'alice@example.com',
@@ -1300,52 +1332,13 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final info = await client.fetchCurrentVaultGenerationInfo(
         email: 'alice@example.com',
       );
 
       expect(info, isNull);
-    });
-
-    test(
-        'hasRecoveryEnvelope reflects the server\'s { exists } response',
-        () async {
-      final crypto = DartCryptoProvider();
-      final dio = Dio();
-      dio.httpClientAdapter = _ScriptedAdapter((options) async {
-        expect(options.path, contains('/recovery/envelope-exists/'));
-        return _jsonOk({'exists': true});
-      });
-      final client = PubkeyClient(
-        crypto: crypto,
-        readBaseUrl: 'https://api.pubkey.test',
-        writeBaseUrl: 'https://api.pubkey.test',
-        dio: dio,
-      );
-
-      final exists = await client.hasRecoveryEnvelope(email: 'alice@example.com');
-
-      expect(exists, isTrue);
-    });
-
-    test('hasRecoveryEnvelope returns false when none was ever set up',
-        () async {
-      final crypto = DartCryptoProvider();
-      final dio = Dio();
-      dio.httpClientAdapter = _ScriptedAdapter((options) async {
-        return _jsonOk({'exists': false});
-      });
-      final client = PubkeyClient(
-        crypto: crypto,
-        readBaseUrl: 'https://api.pubkey.test',
-        writeBaseUrl: 'https://api.pubkey.test',
-        dio: dio,
-      );
-
-      final exists = await client.hasRecoveryEnvelope(email: 'alice@example.com');
-
-      expect(exists, isFalse);
     });
   });
 }

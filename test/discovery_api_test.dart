@@ -37,16 +37,17 @@ void main() {
     );
   });
 
-  test('mailbox path encoding keeps plus tags before canonicalization', () {
+  test('identity path rejects a mailbox address', () {
     final client = PubkeyClient(
       crypto: DartCryptoProvider(),
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
     );
-    // Server normalizeEmail strips +tags; path still encodes the canonical form.
-    final encoded = client.encodeMailboxPath('Alice+tag@Example.COM');
-    expect(encoded, contains('%40'));
-    expect(encoded.toLowerCase(), isNot(contains('+')));
+    expect(
+      () => client.encodeIdentityPath('Alice+tag@Example.COM'),
+      throwsA(isA<PubkeyException>()),
+    );
+    expect(client.encodeIdentityPath('ab' * 32), 'ab' * 32);
   });
 
   test('PubkeyException parses nested error envelope', () {

@@ -53,6 +53,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
 
       final artifact = {
         'family': 'pgp',
@@ -142,6 +143,7 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
+      client.bindIdentity();
       await client.setSigningKeyWithProof(
         email: 'alice@example.com',
         artifact: {

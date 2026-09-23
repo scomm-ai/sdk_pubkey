@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../client/mailer_client.dart';
 import '../client/pubkey_client.dart';
 import '../crypto/provider.dart';
 import '../errors.dart';
@@ -70,13 +71,17 @@ class LocalFileBackupStore implements VaultBackupStore {
 
 /// Hosted opaque slot on the write host. Put is MSK-signed; get is OTP-gated.
 class DiscoveryBackupStore implements VaultBackupStore {
-  DiscoveryBackupStore(this.client, {this.mskKey});
+  DiscoveryBackupStore(this.client, {required this.mailer, this.mskKey});
 
   final PubkeyClient client;
+  final MailerClient mailer;
   KeyRef? mskKey;
 
   Future<void> requestOtp({required String identity}) {
-    return client.requestVaultBackupOtp(email: identity);
+    return mailer.requestOtp(
+      email: identity,
+      purpose: MailerOtpPurpose.vaultBackup,
+    );
   }
 
   @override
@@ -116,7 +121,15 @@ class DiscoveryBackupStore implements VaultBackupStore {
         'Mailbox OTP is required to fetch a hosted vault backup',
       );
     }
-    return client.fetchVaultBackup(email: identity, otp: otp);
+    final grant = await mailer.verifyOtp(
+      email: identity,
+      otp: otp,
+      purpose: MailerOtpPurpose.vaultBackup,
+    );
+    return client.fetchVaultBackupWithGrant(
+      identityId: grant.identityId,
+      otpGrant: grant.otpGrant,
+    );
   }
 
   @override

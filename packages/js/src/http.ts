@@ -14,14 +14,6 @@ export function normalizeEmail(email: string | null | undefined): string {
   return `${local}@${domain}`;
 }
 
-export function encodeMailboxPath(mailbox: string): string {
-  const canonical = normalizeEmail(mailbox);
-  if (!canonical || !canonical.includes("@")) {
-    throw new Error("Valid email is required");
-  }
-  return encodeURIComponent(canonical);
-}
-
 export function joinUrl(base: string, path: string): string {
   const b = base.replace(/\/+$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;

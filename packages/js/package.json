@@ -1,7 +1,7 @@
 {
   "name": "@scomm/discovery",
   "version": "0.1.0",
-  "description": "Discovery Protocol Track A client: discoverMailbox + local encryption key select",
+  "description": "Discovery Protocol Track A client: discoverIdentity + local encryption key select",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

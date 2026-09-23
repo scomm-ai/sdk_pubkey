@@ -163,24 +163,6 @@ Uint8List sha256Bytes(Object data) {
 
 String textToUuidV8(String value) => sha256ToUuidV8(sha256Bytes(value));
 
-Uint8List emailSha256(String canonicalEmail) => sha256Bytes(canonicalEmail);
-
-String emailSha256Hex(String canonicalEmail) =>
-    legacyEmailSha256HexForRebind(canonicalEmail);
-
-/// Unsalted SHA-256 of the canonical mailbox. Local `rebind_identity`
-/// payload only. Pubkey v2 URLs and JSON must not carry this digest.
-String legacyEmailSha256HexForRebind(String canonicalEmail) =>
-    bytesToHex(emailSha256(canonicalEmail));
-
-String principalFromEmail(String email) {
-  final canonical = normalizeEmail(email);
-  if (canonical.isEmpty) {
-    throw ArgumentError('email is required');
-  }
-  return textToUuidV8(canonical);
-}
-
 int uuidLast16Bits(String uuid) {
   final hex = uuid.replaceAll('-', '');
   return int.parse(hex.substring(28, 32), radix: 16);

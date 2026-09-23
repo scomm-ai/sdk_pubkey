@@ -7,17 +7,6 @@ import 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
-  late bool previous;
-
-  setUp(() {
-    previous = PubkeyIdentityMode.v2;
-    PubkeyIdentityMode.v2 = true;
-  });
-
-  tearDown(() {
-    PubkeyIdentityMode.v2 = previous;
-  });
-
   test('enroll, directory, and recovery omit mailbox addresses', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();
@@ -87,6 +76,7 @@ void main() {
     await runtime.store.setVaultId('cd' * 32);
     await runtime.client.enrollMskForIdentity(
       identityId: grant.identityId,
+      vaultId: 'cd' * 32,
       mskPublicKey: Uint8List(32),
     );
     await runtime.client.selectDirectoryKey(email: 'bob@example.com');
@@ -110,34 +100,7 @@ void main() {
     }
   });
 
-  test('rebind payload has old_email_sha256 and no mailbox', () async {
-    Map<String, dynamic>? body;
-    final dio = Dio();
-    dio.httpClientAdapter = _Capture((options) async {
-      body = Map<String, dynamic>.from(options.data as Map);
-      return _json({'ok': true});
-    });
-    final runtime = createPubkeyRuntime(
-      'alice@example.com',
-      dio: dio,
-      readBaseUrl: 'http://pubkey.test',
-      writeBaseUrl: 'http://pubkey.test',
-      mailerBaseUrl: 'http://mailer.test',
-    );
-    final msk = await runtime.crypto.generateMSK();
-    await runtime.client.rebindIdentity(
-      email: 'alice@example.com',
-      identityId: 'ab' * 32,
-      vaultId: 'cd' * 32,
-      mskKey: msk,
-    );
-    final payload = Map<String, dynamic>.from(body!['payload'] as Map);
-    expect(payload['old_email_sha256'], legacyEmailSha256HexForRebind('alice@example.com'));
-    expect(payload.containsKey('email'), isFalse);
-    expect(jsonEncode(body).contains('alice@example.com'), isFalse);
-  });
-
-  test('v2 vault reads are authorized and not keyed by email hash', () async {
+  test('vault reads are authorized and not keyed by email hash', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();
     const vaultId = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
@@ -177,20 +140,6 @@ void main() {
       vek: Uint8List(32),
     );
     await runtime.client.fetchCurrentVaultGenerationInfo(email: 'alice@example.com');
-    await expectLater(
-      runtime.client.hasRecoveryEnvelope(email: 'alice@example.com'),
-      throwsA(
-        isA<PubkeyException>().having(
-          (e) => e.code,
-          'code',
-          ErrorCodes.unsupportedProtocolVersion,
-        ),
-      ),
-    );
-    await expectLater(
-      runtime.client.hasVaultBackup(email: 'alice@example.com'),
-      throwsA(isA<PubkeyException>()),
-    );
 
     expect(seen, isNotEmpty);
     for (final request in seen) {

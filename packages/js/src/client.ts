@@ -1,9 +1,7 @@
 import { DiscoveryDocument } from "./document.js";
 import {
   DiscoveryError,
-  encodeMailboxPath,
   joinUrl,
-  normalizeEmail,
 } from "./http.js";
 
 export type DiscoveryClientOptions = {
@@ -33,12 +31,18 @@ export class DiscoveryClient {
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
-  encodeMailboxPath(mailbox: string): string {
-    return encodeMailboxPath(mailbox);
+  encodeIdentityPath(identityId: string): string {
+    if (!/^[0-9a-f]{64}$/.test(identityId)) {
+      throw new DiscoveryError(
+        "invalid_request",
+        "identity_id must be 64 lowercase hex characters",
+      );
+    }
+    return identityId;
   }
 
-  async discoverMailbox(mailbox: string): Promise<DiscoveryDocument> {
-    const path = `/v1/mailboxes/${encodeMailboxPath(mailbox)}`;
+  async discoverIdentity(identityId: string): Promise<DiscoveryDocument> {
+    const path = `/v1/identities/${this.encodeIdentityPath(identityId)}`;
     const url = joinUrl(this.readBaseUrl, path);
     const res = await this.fetchImpl(url, {
       method: "GET",
@@ -77,4 +81,4 @@ export function createDiscoveryClient(
   return new DiscoveryClient(options);
 }
 
-export { normalizeEmail, encodeMailboxPath, joinUrl, DiscoveryError };
+export { joinUrl, DiscoveryError };

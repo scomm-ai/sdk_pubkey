@@ -13,14 +13,6 @@ void main() {
       final vector = Map<String, dynamic>.from(raw as Map);
       test(vector['id'] as String, () {
         expect(normalizeEmail(vector['input'] as String), vector['canonical']);
-        expect(
-          emailSha256Hex(vector['canonical'] as String),
-          vector['sha256'],
-        );
-        expect(
-          principalFromEmail(vector['input'] as String),
-          vector['principal'],
-        );
       });
     }
 
@@ -60,12 +52,12 @@ void main() {
         isNot(normalizeEmail('alice@example.com')),
       );
       expect(
-        principalFromEmail('alice+work@example.com'),
-        isNot(principalFromEmail('alice@example.com')),
+        normalizeEmail('alice+work@example.com'),
+        isNot(normalizeEmail('alice@example.com')),
       );
       expect(
-        principalFromEmail('alice+work@gmail.com'),
-        isNot(principalFromEmail('alice@gmail.com')),
+        normalizeEmail('alice+work@gmail.com'),
+        isNot(normalizeEmail('alice@gmail.com')),
       );
     });
   });

@@ -7,7 +7,6 @@ export 'src/client/mailer_client.dart';
 export 'src/client/pubkey_client.dart';
 export 'src/config/pubkey_config.dart';
 export 'src/constants.dart';
-export 'src/identity_mode.dart';
 export 'src/oprf/identity_oprf.dart';
 export 'src/device.dart';
 export 'src/discovery/document.dart';

@@ -29,7 +29,7 @@ void main() {
     final vek = runtime.crypto.random(32);
     await runtime.store.ensureDkek(runtime.crypto);
     await runtime.store.setVek(runtime.crypto, vek);
-    await runtime.vault.createVault(principalFromEmail(email));
+    await runtime.vault.createVault('ab' * 32);
     // VEK only — exactly what a "limited" pairing grant leaves behind.
     expect(await runtime.store.getAek(runtime.crypto), isNull);
 
@@ -52,7 +52,7 @@ void main() {
     final vek = runtime.crypto.random(32);
     await runtime.store.ensureDkek(runtime.crypto);
     await runtime.store.setVek(runtime.crypto, vek);
-    await runtime.vault.createVault(principalFromEmail(email));
+    await runtime.vault.createVault('ab' * 32);
 
     await expectLater(
       runtime.mutateAndUpload(email: email, mutation: (_) {}),

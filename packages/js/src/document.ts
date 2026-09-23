@@ -9,7 +9,7 @@ import {
 
 export type DiscoveryDocumentJson = {
   schemaVersion?: string;
-  mailbox?: string;
+  identityId?: string;
   $schema?: string;
   capabilities?: Record<string, unknown>;
   extensions?: Record<string, unknown>;
@@ -22,7 +22,7 @@ export type DiscoveryDocumentJson = {
  */
 export class DiscoveryDocument {
   readonly schemaVersion: string;
-  readonly mailbox: string;
+  readonly identityId: string;
   readonly schema: string | undefined;
   readonly capabilities: Record<string, unknown>;
   readonly extensions: Record<string, unknown>;
@@ -32,7 +32,7 @@ export class DiscoveryDocument {
     const caps = json.capabilities;
     const ext = json.extensions;
     this.schemaVersion = json.schemaVersion != null ? String(json.schemaVersion) : "";
-    this.mailbox = json.mailbox != null ? String(json.mailbox) : "";
+    this.identityId = json.identityId != null ? String(json.identityId) : "";
     this.schema = json.$schema != null ? String(json.$schema) : undefined;
     this.capabilities =
       caps && typeof caps === "object" && !Array.isArray(caps)

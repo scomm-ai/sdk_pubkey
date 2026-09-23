@@ -11,6 +11,7 @@ abstract final class MailerOtpPurpose {
   static const replaceMsk = 'replace_msk';
   static const recoveryEnvelope = 'recovery_envelope';
   static const recoveryGeneration = 'recovery_generation';
+  static const vaultBackup = 'vault_backup';
 }
 
 class MailerOtpGrant {

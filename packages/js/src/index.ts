@@ -2,8 +2,6 @@ export {
   createDiscoveryClient,
   DiscoveryClient,
   type DiscoveryClientOptions,
-  normalizeEmail,
-  encodeMailboxPath,
   joinUrl,
   DiscoveryError,
 } from "./client.js";

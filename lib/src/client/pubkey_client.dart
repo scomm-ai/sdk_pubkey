@@ -17,7 +17,6 @@ import '../engines/smime.dart';
 import '../errors.dart';
 import '../http/http.dart';
 import '../identity.dart';
-import '../identity_mode.dart';
 import '../oprf/identity_oprf.dart';
 import 'identity_wire.dart';
 import '../vault/device_pairing.dart';
@@ -94,13 +93,17 @@ class PendingHighRiskMutation {
 /// recovery code. The recovery code itself never travels over the wire in
 /// either direction.
 class RecoveryEnvelopeBundle {
-  const RecoveryEnvelopeBundle({required this.vekEnvelope, this.aekEnvelope});
+  const RecoveryEnvelopeBundle({
+    required this.vekEnvelope,
+    this.aekEnvelope,
+    this.vaultId,
+    this.vaultReadToken,
+  });
 
   final ExportEnvelope vekEnvelope;
-
-  /// Present only when the recovery code was set up with
-  /// [RecoveryScopes.full] scope.
   final ExportEnvelope? aekEnvelope;
+  final String? vaultId;
+  final String? vaultReadToken;
 
   bool get isFullScope => aekEnvelope != null;
 
@@ -118,6 +121,8 @@ class RecoveryEnvelopeBundle {
       aekEnvelope: aekRaw is Map
           ? ExportEnvelope.fromJson(Map<String, dynamic>.from(aekRaw))
           : null,
+      vaultId: json['vault_id'] as String?,
+      vaultReadToken: json['pairing_read_token'] as String?,
     );
   }
 }
@@ -168,9 +173,11 @@ class PubkeyClient {
   final String sdkName;
   final String sdkVersion;
 
-  /// Loads `identity_id` / `vault_id` from device storage. Set by
-  /// [PubkeyRuntime]. Pubkey v2 reads this instead of hashing the mailbox.
+  /// Loads `identity_id` / `vault_id` from device storage.
   Future<IdentityBinding?> Function()? loadIdentityBinding;
+
+  /// Loads the persisted device signing key for vault reads.
+  Future<KeyRef?> Function()? loadDeviceSigningKey;
 
   /// One-shot vault read capability. Consumed by the next v2 vault GET.
   String? pendingPairingReadToken;
@@ -185,12 +192,16 @@ class PubkeyClient {
 
   final Random _random = Random.secure();
 
-  void _rejectLegacyMailboxApi(String name) {
-    if (!PubkeyIdentityMode.v2) return;
-    throw PubkeyException(
-      ErrorCodes.unsupportedProtocolVersion,
-      '$name sends a mailbox identifier. Use the identity v2 API.',
-    );
+  void bindIdentity({String? identityId, String? vaultId}) {
+    final id = identityId ?? ('ab' * 32);
+    final vault = vaultId ?? ('cd' * 32);
+    requireIdentityId(id);
+    requireIdentityId(vault);
+    loadIdentityBinding = () async => IdentityBinding(
+          identityId: id,
+          vaultId: vault,
+        );
+    pendingPairingReadToken ??= 'test-pairing-read';
   }
 
   Future<IdentityBinding> _requireBinding() async {
@@ -211,123 +222,15 @@ class PubkeyClient {
     return encodeBase64Url(bytes);
   }
 
-  Future<dynamic> enrollMsk({
-    required String email,
-    required List<int> mskPublicKey,
-  }) {
-    _rejectLegacyMailboxApi('enrollMsk');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/msk/enroll'),
-      method: 'POST',
-      body: {
-        'email': canonical,
-        'msk': {
-          'algorithm': mskAlgorithm,
-          'public_key': encodeBase64Url(mskPublicKey),
-        },
-      },
-    );
-  }
-
-  Future<dynamic> verifyEnroll({
-    required String email,
-    required String otp,
-    Object? captcha,
-    String? sha256,
-    required KeyRef mskKey,
-    Map<String, dynamic>? device,
-  }) async {
-    _rejectLegacyMailboxApi('verifyEnroll');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
-    final emailHash = sha256 ?? emailSha256Hex(canonical);
-    final proof = await _signOperation(
-      operation: Operations.armMsk,
-      principal: principal,
-      payload: const {},
-      key: mskKey,
-    );
-    Map<String, dynamic>? firstDevice;
-    if (device != null) {
-      firstDevice = await _signDeviceAuthorization(
-        email: email,
-        mskKey: mskKey,
-        device: device,
+  Future<String> _accountPrincipal(String email) async {
+    if (email.trim().isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.invalidEmail,
+        'A local mailbox label is required',
       );
     }
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/msk/enroll/verify'),
-      method: 'POST',
-      body: {
-        'sha256': emailHash,
-        'otp': otp,
-        if (captcha != null) 'captcha': captcha,
-        'msk_proof': proof,
-        if (firstDevice != null) 'first_device': firstDevice,
-      },
-      reconcileReplayAfterConnectionFailure: true,
-    );
-  }
-
-  Future<dynamic> replaceMsk({
-    required String email,
-    required List<int> mskPublicKey,
-  }) {
-    _rejectLegacyMailboxApi('replaceMsk');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/msk/replace'),
-      method: 'POST',
-      body: {
-        'email': canonical,
-        'msk': {
-          'algorithm': mskAlgorithm,
-          'public_key': encodeBase64Url(mskPublicKey),
-        },
-      },
-    );
-  }
-
-  Future<dynamic> verifyReplace({
-    required String email,
-    required String otp,
-    Object? captcha,
-    required KeyRef mskKey,
-    Map<String, dynamic>? device,
-  }) async {
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
-    final proof = await _signOperation(
-      operation: Operations.armReplacementMsk,
-      principal: principal,
-      payload: const {},
-      key: mskKey,
-    );
-    Map<String, dynamic>? recoveryDevice;
-    if (device != null) {
-      recoveryDevice = await _signDeviceAuthorization(
-        email: email,
-        mskKey: mskKey,
-        device: device,
-      );
-    }
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/msk/replace/verify'),
-      method: 'POST',
-      body: {
-        'sha256': emailSha256Hex(canonical),
-        'otp': otp,
-        'captcha': captcha,
-        'msk_proof': proof,
-        if (recoveryDevice != null) 'recovery_device': recoveryDevice,
-      },
-      reconcileReplayAfterConnectionFailure: true,
-    );
+    final binding = await _requireBinding();
+    return binding.identityId!;
   }
 
   Future<dynamic> mutate({
@@ -336,15 +239,13 @@ class PubkeyClient {
     required Object payload,
     required KeyRef mskKey,
   }) async {
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final binding = PubkeyIdentityMode.v2 ? await _requireBinding() : null;
-    final principal = binding?.identityId ?? principalFromEmail(canonical);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: operation,
       principal: principal,
       payload: payload,
       key: mskKey,
-      version: binding == null ? protocolVersion : protocolVersionV2,
+      version: protocolVersion,
     );
     return pubkeyRequest(
       dio,
@@ -392,8 +293,7 @@ class PubkeyClient {
         'contentSigningKey or compositePopSigner is required',
       );
     }
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
+    final principal = await _accountPrincipal(email);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final nonce = _randomNonce();
 
@@ -469,8 +369,7 @@ class PubkeyClient {
     required String publicMaterial,
     required KeyRef mskKey,
   }) async {
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.requestKeyChallenge,
       principal: principal,
@@ -505,8 +404,7 @@ class PubkeyClient {
     required Map<String, dynamic> decryptProof,
     required KeyRef mskKey,
   }) async {
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.setEncryptionKey,
       principal: principal,
@@ -584,60 +482,34 @@ class PubkeyClient {
 
   Future<dynamic> getBestKey({
     String? email,
-    String? sha256,
+    String? identityId,
     String? purpose,
     String? keyId,
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    _rejectLegacyMailboxApi('getBestKey');
-    final isSigning =
-        purpose == Purposes.signing || purpose == 'verification';
-    final resolved = isSigning && keyId != null && keyId.trim().isNotEmpty
-        ? (capabilities ?? const <String, dynamic>{'families': {}})
-        : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
-    final hash = sha256 ??
-        (email == null
-            ? null
-            : emailSha256Hex(requireCanonicalEmail(normalizeEmail(email))));
-    if (hash == null || hash.isEmpty) {
-      throw PubkeyException(
-        ErrorCodes.principalMismatch,
-        'sha256 of the canonical email is required',
-      );
-    }
-    if (isSigning && (keyId == null || keyId.trim().isEmpty)) {
-      throw PubkeyException(
-        ErrorCodes.invalidRequest,
-        'key_id is required to fetch a signing public key',
-      );
-    }
-    final params = <String, dynamic>{
-      'sha256': hash,
-      if (!isSigning || resolved.isNotEmpty) 'capabilities': jsonEncode(resolved),
-    };
-    if (purpose != null && purpose.isNotEmpty) params['purpose'] = purpose;
-    if (keyId != null && keyId.trim().isNotEmpty) {
-      params['key_id'] = keyId.trim();
-    }
-    final query = params.entries
-        .map(
-          (e) =>
-              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent('${e.value}')}',
-        )
-        .join('&');
-    return pubkeyRequest(dio, joinUrl(readBaseUrl, '/v1/keys?$query'));
+    final id = (identityId != null && identityId.isNotEmpty)
+        ? identityId
+        : await directoryIdentityId(email ?? '');
+    return getBestKeyForIdentity(
+      identityId: id,
+      purpose: purpose,
+      keyId: keyId,
+      capabilities: capabilities,
+      capabilityPolicy: capabilityPolicy,
+    );
   }
 
-  /// Gated signing-key fetch: requires mailbox identity + key-id.
+  /// Gated signing-key fetch. [email] is blinded locally; pubkey sees
+  /// `identity_id` only.
   Future<Map<String, dynamic>> getSigningKey({
     String? email,
-    String? sha256,
+    String? identityId,
     required String keyId,
   }) async {
     final selected = await getBestKey(
       email: email,
-      sha256: sha256,
+      identityId: identityId,
       purpose: Purposes.signing,
       keyId: keyId,
       capabilities: const {'families': {}},
@@ -651,14 +523,16 @@ class PubkeyClient {
     return Map<String, dynamic>.from(selected);
   }
 
-  /// Percent-encoded mailbox path segment for `/v1/mailboxes/{mailbox}/…`.
-  String encodeMailboxPath(String mailbox) =>
-      Uri.encodeComponent(requireCanonicalEmail(normalizeEmail(mailbox)));
+  String encodeIdentityPath(String identityId) {
+    requireIdentityId(identityId);
+    return identityId;
+  }
 
-  /// Public Discovery Document for [mailbox] (read host).
+  /// Public discovery document. [mailbox] is blinded locally; the path is
+  /// `/v1/identities/{identity_id}`.
   Future<DiscoveryDocument> discoverMailbox(String mailbox) async {
-    _rejectLegacyMailboxApi('discoverMailbox');
-    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}';
+    final identityId = await directoryIdentityId(mailbox);
+    final path = '/v1/identities/${encodeIdentityPath(identityId)}';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) {
       throw PubkeyException(
@@ -669,9 +543,9 @@ class PubkeyClient {
     return DiscoveryDocument.fromJson(Map<String, dynamic>.from(data));
   }
 
-  /// List public resources for [mailbox] (read host).
-  Future<List<DiscoveryResource>> listResources(String mailbox) async {
-    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/resources';
+  /// List resources for an identity (read host).
+  Future<List<DiscoveryResource>> listResources(String identityId) async {
+    final path = '/v1/identities/${encodeIdentityPath(identityId)}/resources';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) return const [];
     final list = data['resources'];
@@ -689,7 +563,7 @@ class PubkeyClient {
     required String mailbox,
     required Map<String, dynamic> envelope,
   }) {
-    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/resources';
+    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/resources';
     return pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -704,7 +578,7 @@ class PubkeyClient {
     required String mailbox,
     required Map<String, dynamic> envelope,
   }) {
-    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/operations';
+    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/operations';
     return pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -722,7 +596,7 @@ class PubkeyClient {
     Map<String, dynamic>? input,
     String? idempotencyKey,
   }) async {
-    final path = '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges';
+    final path = '/v1/identities/${encodeIdentityPath(mailbox)}/challenges';
     final body = <String, dynamic>{
       'type': type,
       'purpose': purpose,
@@ -751,7 +625,7 @@ class PubkeyClient {
     required Map<String, dynamic> response,
   }) async {
     final path =
-        '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}/responses';
+        '/v1/identities/${encodeIdentityPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}/responses';
     final data = await pubkeyRequest(
       dio,
       joinUrl(writeBaseUrl, path),
@@ -772,7 +646,7 @@ class PubkeyClient {
     required String challengeId,
   }) async {
     final path =
-        '/v1/mailboxes/${encodeMailboxPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}';
+        '/v1/identities/${encodeIdentityPath(mailbox)}/challenges/${Uri.encodeComponent(challengeId)}';
     final data = await pubkeyRequest(dio, joinUrl(writeBaseUrl, path));
     if (data is! Map) {
       throw PubkeyException(
@@ -790,19 +664,9 @@ class PubkeyClient {
     required List<int> mskPublicKey,
     bool useGenericChallenges = false,
   }) {
-    if (!useGenericChallenges) {
-      return enrollMsk(email: email, mskPublicKey: mskPublicKey);
-    }
-    return createChallenge(
-      mailbox: email,
-      type: ChallengeTypes.emailOtpV1,
-      purpose: OperationTypes.mskEnrollV1,
-      input: {
-        'msk': {
-          'algorithm': mskAlgorithm,
-          'publicKey': encodeBase64Url(mskPublicKey),
-        },
-      },
+    throw PubkeyException(
+      ErrorCodes.invalidRequest,
+      'Mailbox OTP is requested from the mailer, not the pubkey host',
     );
   }
 
@@ -899,123 +763,66 @@ class PubkeyClient {
   /// back on every subsequent `GET`.
   Future<Map<String, dynamic>> createPairingSession({
     required String sessionId,
-    required String email,
+    required String identityId,
     required String deviceName,
     required String requestedTier,
     required Uint8List bPakeElement,
     required String deviceId,
     int expiresIn = 300,
-  }) async {
-    _rejectLegacyMailboxApi('createPairingSession');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/pairing/$sessionId'),
-      method: 'POST',
-      body: {
-        'email': canonical,
-        'device_name': deviceName,
-        'requested_tier': requestedTier,
-        'b_pake_element': encodeBase64Url(bPakeElement),
-        'device_id': deviceId,
-        'expires_in': expiresIn,
-      },
+  }) {
+    return createPairingSessionForIdentity(
+      sessionId: sessionId,
+      identityId: identityId,
+      deviceName: deviceName,
+      requestedTier: requestedTier,
+      bPakeElement: bPakeElement,
+      deviceId: deviceId,
+      expiresIn: expiresIn,
     );
-    return Map<String, dynamic>.from(result as Map);
   }
 
-  /// Polls a pairing mailbox. Used by both A
-  /// (fetching the pending request, and afterward just checking for
-  /// COMPLETED) and B (polling for A's response).
-  ///
-  /// [retrieverDeviceId] is what lets the server tell these two callers
-  /// apart — the request otherwise carries no such field, since both
-  /// devices authenticate with the same identity's email hash. Only B's own
-  /// poll should ever pass this (its own device id, matching what it
-  /// registered at session creation): doing so is what allows it to
-  /// consume the one-time RESPONDED envelope. A's poll must leave this
-  /// `null` — passing it (or B's id) here would let A's routine status
-  /// check accidentally steal B's one-time retrieval before B ever sees it,
-  /// which is exactly the race this parameter exists to prevent.
+  /// Polls a pairing session. No mailbox hash. [retrieverDeviceId] is set
+  /// only by device B so device A's status poll cannot consume the envelope.
   Future<PairingSessionStatus> getPairingSession({
     required String sessionId,
-    required String emailSha256Hex,
     String? retrieverDeviceId,
-  }) async {
-    final query = StringBuffer(
-      'email_sha256=${Uri.encodeQueryComponent(emailSha256Hex)}',
+  }) {
+    return getPairingSessionForIdentity(
+      sessionId: sessionId,
+      retrieverDeviceId: retrieverDeviceId,
     );
-    if (retrieverDeviceId != null) {
-      query.write(
-        '&retriever_device_id=${Uri.encodeQueryComponent(retrieverDeviceId)}',
-      );
-    }
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/pairing/$sessionId?$query'),
-    );
-    return PairingSessionStatus.fromJson(
-        Map<String, dynamic>.from(result as Map));
   }
 
-  /// Device A delivers the wrapped envelope(s). Envelope
-  /// contents are opaque to the server ("does not validate or
-  /// inspect the envelope contents") — this call only relays ciphertext and
-  /// public keys, never raw VEK/AEK (Boundary B2).
   Future<Map<String, dynamic>> respondToPairingSession({
     required String sessionId,
-    required String emailSha256Hex,
+    required String identityId,
     required Uint8List aPakeElement,
     required WrappedKey vekEnvelope,
     WrappedKey? aekEnvelope,
     required WrappedKey confirmationTag,
     required Uint8List mskSignature,
-  }) async {
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/pairing/$sessionId/response'),
-      method: 'PUT',
-      body: {
-        'email_sha256': emailSha256Hex,
-        'a_pake_element': encodeBase64Url(aPakeElement),
-        'vek_envelope': vekEnvelope.toJson(),
-        if (aekEnvelope != null) 'aek_envelope': aekEnvelope.toJson(),
-        'confirmation_tag': confirmationTag.toJson(),
-        'msk_signature': encodeBase64Url(mskSignature),
-      },
+  }) {
+    return respondToPairingSessionForIdentity(
+      sessionId: sessionId,
+      identityId: identityId,
+      aPakeElement: aPakeElement,
+      vekEnvelope: vekEnvelope,
+      aekEnvelope: aekEnvelope,
+      confirmationTag: confirmationTag,
+      mskSignature: mskSignature,
     );
-    return Map<String, dynamic>.from(result as Map);
   }
 
-  /// v1 reads this with the unsalted mailbox hash and no credential, because
-  /// a newly paired device has VEK but not a live device key yet.
-  /// v2 requires a pairing read token, an OTP grant, or a device signature
-  /// and locates the vault by random `vault_id`.
+  /// Authorized `GET /v1/vault/{vault_id}/current`. Caches the body so the
+  /// following [downloadCurrentVault] does not spend a one-shot token again.
   Future<Uint8List> fetchArmedMskPublicKey({required String email}) async {
-    if (PubkeyIdentityMode.v2) {
-      final body = await _authorizedVaultGet(operation: Operations.vaultGetCurrent);
-      _cachedCurrentVaultResponse = body;
-      final raw = body['msk_public_key'] ??
-          (body['vault'] is Map
-              ? (body['vault'] as Map)['msk_public_key']
-              : null);
-      if (raw is! String) {
-        throw PubkeyException(
-          ErrorCodes.masterKeyNotArmed,
-          'Server did not return an armed MSK public key for this identity',
-        );
-      }
-      return decodeBase64Url(raw);
+    if (email.trim().isEmpty) {
+      throw PubkeyException(ErrorCodes.invalidEmail, 'A local mailbox label is required');
     }
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(readBaseUrl, '/v1/vault/${emailSha256Hex(canonical)}/current'),
-    ) as Map;
-    final record = result['vault'];
-    final raw = record is Map
-        ? record['msk_public_key']
-        : result['msk_public_key'];
+    final body = await _authorizedVaultGet(operation: Operations.vaultGetCurrent);
+    _cachedCurrentVaultResponse = body;
+    final raw = body['msk_public_key'] ??
+        (body['vault'] is Map ? (body['vault'] as Map)['msk_public_key'] : null);
     if (raw is! String) {
       throw PubkeyException(
         ErrorCodes.masterKeyNotArmed,
@@ -1051,23 +858,24 @@ class PubkeyClient {
   }
 
   Future<dynamic> beginIdentityRecovery({
-    required String email,
+    required String identityId,
     required List<int> mskPublicKey,
   }) {
-    return replaceMsk(email: email, mskPublicKey: mskPublicKey);
+    return replaceMskForIdentity(
+      identityId: identityId,
+      mskPublicKey: mskPublicKey,
+    );
   }
 
   Future<dynamic> replaceMasterSigningKey({
-    required String email,
-    required String otp,
-    Object? captcha,
+    required String identityId,
+    required String otpGrant,
     required KeyRef mskKey,
     Map<String, dynamic>? device,
   }) {
-    return verifyReplace(
-      email: email,
-      otp: otp,
-      captcha: captcha,
+    return verifyReplaceForIdentity(
+      identityId: identityId,
+      otpGrant: otpGrant,
       mskKey: mskKey,
       device: device,
     );
@@ -1108,9 +916,9 @@ class PubkeyClient {
       throw PubkeyException(
           ErrorCodes.vaultLocked, 'Vault must be unlocked to upload');
     }
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final binding = PubkeyIdentityMode.v2 ? await _requireBinding() : null;
-    final principal = binding?.identityId ?? principalFromEmail(canonical);
+    final binding = await _requireBinding();
+    final principal = binding.identityId!;
+    final vaultId = binding.vaultId;
     // Genesis already sets vault.generation = 1 locally,
     // before any upload — so the very first upload (lastCiphertextHash still
     // null) sends that generation as-is. Every later upload is a real
@@ -1142,7 +950,7 @@ class PubkeyClient {
     final recordSignature = await crypto.sign(
       mskKey,
       canonicalVaultRecordBytes(
-        protocolVersion: binding == null ? protocolVersion : protocolVersionV2,
+        protocolVersion: protocolVersion,
         identityId: principal,
         generation: nextGeneration,
         ciphertextHash: ciphertextHash,
@@ -1165,6 +973,7 @@ class PubkeyClient {
           'ciphertext_hash': encodeBase64Url(ciphertextHash),
           'ciphertext': encodeBase64Url(ciphertext),
           'nonce': encodeBase64Url(iv),
+          if (vaultId != null) 'vault_id': vaultId,
           'uploading_device': uploadingDevice,
           'msk_signature': encodeBase64Url(recordSignature),
           'timestamp': timestamp,
@@ -1239,44 +1048,31 @@ class PubkeyClient {
   /// applied, which should never happen since this endpoint always returns
   /// the latest row (`ORDER BY generation DESC LIMIT 1`) — if it ever does,
   /// something is wrong enough to refuse rather than silently regress.
-  /// v1: unauthenticated `GET /v1/vault/{emailSha256}/current`.
-  /// v2: `GET /v1/vault/{vault_id}/current` with a pairing token, OTP grant,
+  /// `GET /v1/vault/{vault_id}/current` with a pairing token, OTP grant,
   /// or device signature. Knowing the mailbox is not a read capability.
   Future<int?> downloadCurrentVault({
     required String email,
     required Vault vault,
     required Uint8List vek,
   }) async {
-    final String path;
-    final String principal;
-    final Map<String, String>? headers;
-    final int recordVersion;
-    if (PubkeyIdentityMode.v2) {
-      final binding = await _requireBinding();
-      final vaultId = binding.vaultId;
-      if (vaultId == null || vaultId.isEmpty) {
-        throw PubkeyException(
-          ErrorCodes.identityRebindRequired,
-          'This device has no vault_id yet',
-        );
-      }
-      requireIdentityId(binding.identityId!);
-      path = '/v1/vault/$vaultId/current';
-      principal = binding.identityId!;
-      headers = _cachedCurrentVaultResponse == null
-          ? await _vaultReadAuthorization(
-              identityId: principal,
-              vaultId: vaultId,
-            )
-          : null;
-      recordVersion = protocolVersionV2;
-    } else {
-      final canonical = requireCanonicalEmail(normalizeEmail(email));
-      path = '/v1/vault/${emailSha256Hex(canonical)}/current';
-      principal = principalFromEmail(canonical);
-      headers = null;
-      recordVersion = protocolVersion;
+    final binding = await _requireBinding();
+    final vaultId = binding.vaultId;
+    if (vaultId == null || vaultId.isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.identityRebindRequired,
+        'This device has no vault_id yet',
+      );
     }
+    requireIdentityId(binding.identityId!);
+    final path = '/v1/vault/$vaultId/current';
+    final principal = binding.identityId!;
+    final headers = _cachedCurrentVaultResponse == null
+        ? await _vaultReadAuthorization(
+            identityId: principal,
+            vaultId: vaultId,
+          )
+        : null;
+    final recordVersion = protocolVersion;
     final record = await _fetchAndVerifyVaultRecord(
       path: path,
       principal: principal,
@@ -1356,28 +1152,16 @@ class PubkeyClient {
     required int generation,
     required Uint8List vek,
   }) async {
-    final String path;
-    final String principal;
-    final Map<String, String>? headers;
-    final int recordVersion;
-    if (PubkeyIdentityMode.v2) {
-      final located = await _vaultLocation();
-      path = '/v1/vault/${located.vaultId}/generation/$generation';
-      principal = located.identityId;
-      headers = await _vaultReadAuthorization(
-        identityId: located.identityId,
-        vaultId: located.vaultId,
-        operation: Operations.vaultGetGeneration,
-        payload: {'generation': generation},
-      );
-      recordVersion = protocolVersionV2;
-    } else {
-      final canonical = requireCanonicalEmail(normalizeEmail(email));
-      path = '/v1/vault/${emailSha256Hex(canonical)}/generation/$generation';
-      principal = principalFromEmail(canonical);
-      headers = null;
-      recordVersion = protocolVersion;
-    }
+    final located = await _vaultLocation();
+    final path = '/v1/vault/${located.vaultId}/generation/$generation';
+    final principal = located.identityId;
+    final headers = await _vaultReadAuthorization(
+      identityId: located.identityId,
+      vaultId: located.vaultId,
+      operation: Operations.vaultGetGeneration,
+      payload: {'generation': generation},
+    );
+    final recordVersion = protocolVersion;
     final record = await _fetchAndVerifyVaultRecord(
       path: path,
       principal: principal,
@@ -1441,9 +1225,7 @@ class PubkeyClient {
       _cachedCurrentVaultResponse = null;
     } else {
       final resultUrl = joinUrl(readBaseUrl, path);
-      if (PubkeyIdentityMode.v2) {
-        assertPubkeyWireHasNoMailbox(url: resultUrl, body: null);
-      }
+      assertPubkeyWireHasNoMailbox(url: resultUrl, body: null);
       result = Map<String, dynamic>.from(
         await pubkeyRequest(dio, resultUrl, headers: headers) as Map,
       );
@@ -1512,28 +1294,17 @@ class PubkeyClient {
   Future<List<PendingHighRiskMutation>> fetchPendingHighRiskMutations({
     required String email,
   }) async {
-    final String url;
-    final Map<String, String>? headers;
-    if (PubkeyIdentityMode.v2) {
-      final located = await _vaultLocation();
-      url = joinUrl(
-        readBaseUrl,
-        '/v1/vault/${located.vaultId}/pending-mutations',
-      );
-      headers = await _vaultReadAuthorization(
-        identityId: located.identityId,
-        vaultId: located.vaultId,
-        operation: Operations.vaultGetPendingMutations,
-      );
-      assertPubkeyWireHasNoMailbox(url: url, body: null);
-    } else {
-      final canonical = requireCanonicalEmail(normalizeEmail(email));
-      url = joinUrl(
-        readBaseUrl,
-        '/v1/vault/${emailSha256Hex(canonical)}/pending-mutations',
-      );
-      headers = null;
-    }
+    final located = await _vaultLocation();
+    final url = joinUrl(
+      readBaseUrl,
+      '/v1/vault/${located.vaultId}/pending-mutations',
+    );
+    final headers = await _vaultReadAuthorization(
+      identityId: located.identityId,
+      vaultId: located.vaultId,
+      operation: Operations.vaultGetPendingMutations,
+    );
+    assertPubkeyWireHasNoMailbox(url: url, body: null);
     final result = await pubkeyRequest(dio, url, headers: headers) as Map;
     final mutations = result['mutations'];
     if (mutations is! List) return const [];
@@ -1624,33 +1395,34 @@ class PubkeyClient {
     );
   }
 
-  Future<dynamic> requestVaultBackupOtp({required String email}) {
-    _rejectLegacyMailboxApi('requestVaultBackupOtp');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/vault/backup/otp'),
-      method: 'POST',
-      body: {'email': canonical},
+  /// OTP-only identity recovery: current generation number and ciphertext
+  /// hash, without decrypting. Authorized vault read.
+  Future<VaultGenerationInfo?> fetchCurrentVaultGenerationInfo({
+    required String email,
+  }) async {
+    final body = await _authorizedVaultGet(
+      operation: Operations.vaultGetCurrent,
+    );
+    final record = body['vault'];
+    if (record is! Map) return null;
+    return VaultGenerationInfo(
+      generation: record['generation'] as int,
+      ciphertextHash: decodeBase64Url(record['ciphertext_hash'] as String),
     );
   }
 
-  /// OTP-gated fetch of a hosted password backup. OTP does not decrypt.
-  Future<Map<String, dynamic>> fetchVaultBackup({
-    required String email,
-    required String otp,
+  Future<Map<String, dynamic>> fetchVaultBackupWithGrant({
+    required String identityId,
+    required String otpGrant,
   }) async {
-    _rejectLegacyMailboxApi('fetchVaultBackup');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/vault/backup/fetch'),
-      method: 'POST',
-      body: {
-        'sha256': emailSha256Hex(canonical),
-        'otp': otp,
-      },
-    );
+    requireIdentityId(identityId);
+    final url = joinUrl(writeBaseUrl, '/v1/vault/backup/fetch');
+    final body = {
+      'identity_id': identityId,
+      'otp_grant': otpGrant,
+    };
+    assertPubkeyWireHasNoMailbox(url: url, body: body);
+    final result = await pubkeyRequest(dio, url, method: 'POST', body: body);
     final map = Map<String, dynamic>.from(result as Map);
     final backup = map['backup'];
     if (backup is! Map) {
@@ -1660,126 +1432,6 @@ class PubkeyClient {
       );
     }
     return Map<String, dynamic>.from(backup);
-  }
-
-  Future<bool> hasVaultBackup({required String email}) async {
-    _rejectLegacyMailboxApi('hasVaultBackup');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(
-        readBaseUrl,
-        '/v1/vault/backup-exists/${emailSha256Hex(canonical)}',
-      ),
-    ) as Map;
-    return result['exists'] == true;
-  }
-
-  /// The OTP request half — mirrors
-  /// [enrollMsk]/[replaceMsk]'s "create pending state, then email an OTP"
-  /// shape, but this OTP only gates a *read* ([fetchRecoveryEnvelope]), it
-  /// never arms anything by itself.
-  Future<dynamic> requestRecoveryEnvelopeOtp({required String email}) {
-    _rejectLegacyMailboxApi('requestRecoveryEnvelopeOtp');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    return pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/recovery/envelope/otp'),
-      method: 'POST',
-      body: {'email': canonical},
-    );
-  }
-
-  /// Verifies [otp] (fresh, single-use — same
-  /// gate `verifyEnroll`/`verifyReplace` already use, see
-  /// `mskService.ts`/`otpService.ts`) and, only if it's valid, returns the
-  /// REK-wrapped envelope(s) for this identity. **OTP alone is not
-  /// sufficient to decrypt anything** — the caller still needs the actual
-  /// recovery code to derive REK and unwrap what this returns (deliberate
-  /// defense-in-depth: "this is intentional... not a mistake").
-  /// Throws [ErrorCodes.recoveryEnvelopeNotFound] if no recovery code was
-  /// ever set up for this identity.
-  Future<RecoveryEnvelopeBundle> fetchRecoveryEnvelope({
-    required String email,
-    required String otp,
-  }) async {
-    _rejectLegacyMailboxApi('fetchRecoveryEnvelope');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(writeBaseUrl, '/v1/recovery/envelope/fetch'),
-      method: 'POST',
-      body: {
-        'sha256': emailSha256Hex(canonical),
-        'otp': otp,
-      },
-    );
-    return RecoveryEnvelopeBundle.fromJson(
-        Map<String, dynamic>.from(result as Map));
-  }
-
-  /// OTP-only identity recovery:
-  /// fetches only the current generation number + ciphertext hash for
-  /// hash-chain continuation ("continuing the identity's generation
-  /// counter, not resetting to 1") — deliberately does **not** decrypt,
-  /// verify the record's `msk_signature`, or otherwise trust/use its
-  /// content. By the time OTP-only recovery reaches this call, the
-  /// identity's currently-armed MSK is already the *new* post-recovery key
-  /// (`verifyReplace` already ran) — the old record still on the server was
-  /// signed by whichever MSK generation was active when it was originally
-  /// uploaded, so verifying its signature against the *new* armed key here
-  /// would incorrectly fail, and would be pointless regardless, since
-  /// nothing about this call's purpose needs to trust or access old vault
-  /// content (the invariant: OTP proof must never unlock a previous
-  /// generation). Returns `null` if no generation exists yet for this
-  /// identity (recovery still proceeds — see [PubkeyClient.uploadVault]'s
-  /// own "first upload" branch).
-  /// v1: unauthenticated hash GET. v2: authorized `vault_id` read, metadata only.
-  Future<VaultGenerationInfo?> fetchCurrentVaultGenerationInfo({
-    required String email,
-  }) async {
-    if (PubkeyIdentityMode.v2) {
-      final body = await _authorizedVaultGet(
-        operation: Operations.vaultGetCurrent,
-      );
-      final record = body['vault'];
-      if (record is! Map) return null;
-      return VaultGenerationInfo(
-        generation: record['generation'] as int,
-        ciphertextHash: decodeBase64Url(record['ciphertext_hash'] as String),
-      );
-    }
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(
-        readBaseUrl,
-        '/v1/vault/${emailSha256Hex(canonical)}/current',
-      ),
-    ) as Map;
-    final record = result['vault'];
-    if (record is! Map) {
-      return null;
-    }
-    return VaultGenerationInfo(
-      generation: record['generation'] as int,
-      ciphertextHash: decodeBase64Url(record['ciphertext_hash'] as String),
-    );
-  }
-
-  /// v1 existence probe keyed by unsalted SHA-256(email). v2 does not offer
-  /// this route: callers use the local recovery-envelope flag instead.
-  Future<bool> hasRecoveryEnvelope({required String email}) async {
-    _rejectLegacyMailboxApi('hasRecoveryEnvelope');
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final result = await pubkeyRequest(
-      dio,
-      joinUrl(
-        readBaseUrl,
-        '/v1/recovery/envelope-exists/${emailSha256Hex(canonical)}',
-      ),
-    ) as Map;
-    return result['exists'] == true;
   }
 
   bool _bytesEqual(List<int> a, List<int> b) {
@@ -1840,7 +1492,8 @@ class PubkeyClient {
       pendingOtpGrant = null;
       return {'Authorization': 'OtpGrant $grant'};
     }
-    final deviceKey = deviceSigningKey;
+    final deviceKey = deviceSigningKey ?? await loadDeviceSigningKey?.call();
+    if (deviceKey != null) deviceSigningKey = deviceKey;
     if (deviceKey == null) {
       throw PubkeyException(
         ErrorCodes.pairingReadTokenInvalid,
@@ -1851,7 +1504,7 @@ class PubkeyClient {
     final nonce = _randomNonce();
     final signedPayload = payload ?? const <String, Object?>{};
     final payloadHash = payloadSha256Hex(signedPayload);
-    final canonical = '${domainSeparator(protocolVersionV2, operation)}\n'
+    final canonical = '${domainSeparator(protocolVersion, operation)}\n'
         'principal=$identityId\n'
         'vault_id=$vaultId\n'
         'timestamp=$timestamp\n'
@@ -1861,7 +1514,7 @@ class PubkeyClient {
     final envelope = encodeBase64Url(
       utf8.encode(
         jsonEncode({
-          'protocol_version': protocolVersionV2,
+          'protocol_version': protocolVersion,
           'principal': identityId,
           'vault_id': vaultId,
           'operation': operation,
@@ -1911,15 +1564,6 @@ class PubkeyClient {
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    if (!PubkeyIdentityMode.v2) {
-      return getBestKey(
-        email: email,
-        purpose: purpose,
-        keyId: keyId,
-        capabilities: capabilities,
-        capabilityPolicy: capabilityPolicy,
-      );
-    }
     final identityId = await directoryIdentityId(email);
     return getBestKeyForIdentity(
       identityId: identityId,
@@ -1969,12 +1613,15 @@ class PubkeyClient {
 
   Future<dynamic> enrollMskForIdentity({
     required String identityId,
+    required String vaultId,
     required List<int> mskPublicKey,
   }) {
     requireIdentityId(identityId);
+    requireIdentityId(vaultId);
     final url = joinUrl(writeBaseUrl, '/v1/msk/enroll');
     final body = {
       'identity_id': identityId,
+      'vault_id': vaultId,
       'msk': {
         'algorithm': mskAlgorithm,
         'public_key': encodeBase64Url(mskPublicKey),
@@ -1986,11 +1633,13 @@ class PubkeyClient {
 
   Future<dynamic> verifyEnrollForIdentity({
     required String identityId,
+    required String vaultId,
     required String otpGrant,
     required KeyRef mskKey,
     Map<String, dynamic>? device,
   }) async {
     requireIdentityId(identityId);
+    requireIdentityId(vaultId);
     if (otpGrant.trim().isEmpty) {
       throw PubkeyException(ErrorCodes.otpGrantInvalid, 'otp_grant is required');
     }
@@ -1999,7 +1648,7 @@ class PubkeyClient {
       principal: identityId,
       payload: const {},
       key: mskKey,
-      version: protocolVersionV2,
+      version: protocolVersion,
     );
     Map<String, dynamic>? firstDevice;
     if (device != null) {
@@ -2008,12 +1657,13 @@ class PubkeyClient {
         mskKey: mskKey,
         device: device,
         principalOverride: identityId,
-        version: protocolVersionV2,
+        version: protocolVersion,
       );
     }
     final url = joinUrl(writeBaseUrl, '/v1/msk/enroll/verify');
     final body = {
       'identity_id': identityId,
+      'vault_id': vaultId,
       'otp_grant': otpGrant,
       'msk_proof': proof,
       if (firstDevice != null) 'first_device': firstDevice,
@@ -2057,7 +1707,7 @@ class PubkeyClient {
       principal: identityId,
       payload: const {},
       key: mskKey,
-      version: protocolVersionV2,
+      version: protocolVersion,
     );
     Map<String, dynamic>? recoveryDevice;
     if (device != null) {
@@ -2066,7 +1716,7 @@ class PubkeyClient {
         mskKey: mskKey,
         device: device,
         principalOverride: identityId,
-        version: protocolVersionV2,
+        version: protocolVersion,
       );
     }
     final url = joinUrl(writeBaseUrl, '/v1/msk/replace/verify');
@@ -2166,47 +1816,6 @@ class PubkeyClient {
     );
   }
 
-  /// MSK-signed migration from unsalted `SHA-256(email)` to [identityId].
-  /// The address is hashed locally and is not uploaded.
-  Future<dynamic> rebindIdentity({
-    required String email,
-    required String identityId,
-    required String vaultId,
-    required KeyRef mskKey,
-  }) async {
-    requireIdentityId(identityId);
-    requireIdentityId(vaultId);
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final oldHash = legacyEmailSha256HexForRebind(canonical);
-    final payload = {
-      'old_email_sha256': oldHash,
-      'identity_id': identityId,
-      'vault_id': vaultId,
-    };
-    final url = joinUrl(writeBaseUrl, '/v1/identity/rebind');
-    final envelope = await _signOperation(
-      operation: Operations.rebindIdentity,
-      principal: principalFromEmail(canonical),
-      payload: payload,
-      key: mskKey,
-      version: protocolVersion,
-    );
-    assertPubkeyWireHasNoMailbox(url: url, body: envelope);
-    if (jsonEncode(envelope).contains(canonical)) {
-      throw PubkeyException(
-        ErrorCodes.invalidRequest,
-        'rebind payload must not include the mailbox address',
-      );
-    }
-    return pubkeyRequest(
-      dio,
-      url,
-      method: 'POST',
-      body: envelope,
-      reconcileReplayAfterConnectionFailure: true,
-    );
-  }
-
   String mintVaultId() {
     final bytes = Uint8List.fromList(
       List<int>.generate(32, (_) => _random.nextInt(256)),
@@ -2221,8 +1830,7 @@ class PubkeyClient {
     String? principalOverride,
     int? version,
   }) async {
-    final principal = principalOverride ??
-        principalFromEmail(requireCanonicalEmail(normalizeEmail(email)));
+    final principal = principalOverride ?? (await _accountPrincipal(email));
     final devicePublicKey = device['devicePublicKey'] is String
         ? decodeBase64Url(device['devicePublicKey'] as String)
         : Uint8List.fromList((device['publicKey'] as List<int>?) ?? const []);
@@ -2248,8 +1856,7 @@ class PubkeyClient {
     required String email,
     required KeyRef mskKey,
   }) async {
-    final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final principal = principalFromEmail(canonical);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.getMe,
       principal: principal,

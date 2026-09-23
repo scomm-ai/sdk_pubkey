@@ -97,8 +97,13 @@ abstract class DeviceKeyStore implements VaultStore {
 
   Future<void> setVaultId(String vaultId);
 
-  /// Local record that a recovery envelope was stored. v2 does not probe
-  /// pubkey for existence.
+  /// Extractable device signing seed (`raw-32`). Signs vault reads.
+  Future<Uint8List?> getDeviceSigningSeed();
+
+  Future<void> setDeviceSigningSeed(Uint8List seed);
+
+  /// Local record that a recovery envelope was stored. Pubkey does not
+  /// offer an existence probe.
   Future<bool> hasLocalRecoveryEnvelope();
 
   Future<void> setLocalRecoveryEnvelope(bool present);
@@ -123,6 +128,7 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
   String? _deviceId;
   String? _identityId;
   String? _vaultId;
+  Uint8List? _deviceSigningSeed;
   bool _localRecoveryEnvelope = false;
 
   @override
@@ -207,6 +213,14 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
   }
 
   @override
+  Future<Uint8List?> getDeviceSigningSeed() async => _deviceSigningSeed;
+
+  @override
+  Future<void> setDeviceSigningSeed(Uint8List seed) async {
+    _deviceSigningSeed = Uint8List.fromList(seed);
+  }
+
+  @override
   Future<bool> hasLocalRecoveryEnvelope() async => _localRecoveryEnvelope;
 
   @override
@@ -224,6 +238,7 @@ class MemoryDeviceKeyStore extends MemoryVaultStore implements DeviceKeyStore {
     _deviceId = null;
     _identityId = null;
     _vaultId = null;
+    _deviceSigningSeed = null;
     _localRecoveryEnvelope = false;
   }
 }
