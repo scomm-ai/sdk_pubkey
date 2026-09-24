@@ -116,6 +116,39 @@ void main() {
     }
   });
 
+  test('first-device enroll verify stays on the directory', () async {
+    final seen = <Uri>[];
+    final dio = Dio();
+    dio.httpClientAdapter = _Capture((options) async {
+      seen.add(options.uri);
+      if (options.uri.path.endsWith('/v1/msk/enroll/verify')) {
+        return _json({'status': 'armed'});
+      }
+      return _json(
+        {'error': 'unexpected', 'message': options.uri.path},
+        status: 500,
+      );
+    });
+    final runtime = createPubkeyRuntime(
+      'alice@example.com',
+      dio: dio,
+      readBaseUrl: 'http://pubkey.test',
+      writeBaseUrl: 'http://pubkey.test',
+      vaultBaseUrl: 'http://vault.test',
+      mailerBaseUrl: 'http://mailer.test',
+    );
+    final msk = await runtime.crypto.generateMSK();
+    await runtime.client.verifyEnrollForIdentity(
+      identityId: 'ab' * 32,
+      vaultId: 'cd' * 32,
+      otpGrant: 'header.payload.sig',
+      mskKey: msk,
+    );
+    expect(seen, hasLength(1));
+    expect(seen.single.host, 'pubkey.test');
+    expect(seen.single.path, '/v1/msk/enroll/verify');
+  });
+
   test('vault reads are authorized and not keyed by email hash', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();

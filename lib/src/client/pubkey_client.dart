@@ -240,16 +240,6 @@ class PubkeyClient {
     return encodeBase64Url(bytes);
   }
 
-  String _directoryPrincipal(String email) {
-    if (email.trim().isEmpty) {
-      throw PubkeyException(
-        ErrorCodes.invalidEmail,
-        'A local mailbox label is required',
-      );
-    }
-    return emailSha256Hex(email);
-  }
-
   Future<String> _accountPrincipal(String email) async {
     if (email.trim().isEmpty) {
       throw PubkeyException(
@@ -269,10 +259,7 @@ class PubkeyClient {
     String? baseUrl,
   }) async {
     final target = (baseUrl ?? writeBaseUrl).trim();
-    final vaultTarget = vaultBaseUrl.trim();
-    final principal = (vaultTarget.isNotEmpty && target == vaultTarget)
-        ? await _accountPrincipal(email)
-        : _directoryPrincipal(email);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: operation,
       principal: principal,
@@ -326,7 +313,7 @@ class PubkeyClient {
         'contentSigningKey or compositePopSigner is required',
       );
     }
-    final principal = _directoryPrincipal(email);
+    final principal = await _accountPrincipal(email);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final nonce = _randomNonce();
 
@@ -402,7 +389,7 @@ class PubkeyClient {
     required String publicMaterial,
     required KeyRef mskKey,
   }) async {
-    final principal = _directoryPrincipal(email);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.requestKeyChallenge,
       principal: principal,
@@ -437,7 +424,7 @@ class PubkeyClient {
     required Map<String, dynamic> decryptProof,
     required KeyRef mskKey,
   }) async {
-    final principal = _directoryPrincipal(email);
+    final principal = await _accountPrincipal(email);
     final envelope = await _signOperation(
       operation: Operations.setEncryptionKey,
       principal: principal,
@@ -572,10 +559,12 @@ class PubkeyClient {
     return emailSha256Hex(mailboxOrSha256);
   }
 
-  /// Public discovery document. [mailbox] is hashed locally; the path is
-  /// `/v1/mailboxes/{mailboxSha256}`.
+  /// Public discovery document. The path is `/v1/mailboxes/{locator}`.
+  /// The locator is the OPRF identity when the vault can evaluate it, because
+  /// published keys are stored under that identity. Otherwise the unsalted
+  /// mailbox hash.
   Future<DiscoveryDocument> discoverMailbox(String mailbox) async {
-    final sha256 = _discoveryLocator(mailbox);
+    final sha256 = await _publishedKeyLocator(mailbox);
     final path = '/v1/mailboxes/${encodeMailboxSha256Path(sha256)}';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) {
@@ -1615,8 +1604,8 @@ class PubkeyClient {
     return identityIdFromOprfFinalize(output);
   }
 
-  /// Directory lookup. v2 blinds the recipient; pubkey never sees the address
-  /// or an unsalted hash. v1 keeps `GET /v1/keys?sha256=`.
+  /// Directory lookup. Published keys are stored under the OPRF identity, so
+  /// the query uses that identity as `sha256` when the vault can evaluate it.
   Future<dynamic> selectDirectoryKey({
     required String email,
     String? purpose,
@@ -1625,12 +1614,22 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     return getBestKeyForIdentity(
-      identityId: emailSha256Hex(email),
+      identityId: await _publishedKeyLocator(email),
       purpose: purpose,
       keyId: keyId,
       capabilities: capabilities,
       capabilityPolicy: capabilityPolicy,
     );
+  }
+
+  /// OPRF identity for a published key. Falls back to the unsalted mailbox
+  /// hash when the vault evaluate endpoint is unreachable.
+  Future<String> _publishedKeyLocator(String email) async {
+    try {
+      return await directoryIdentityId(email);
+    } catch (_) {
+      return emailSha256Hex(email);
+    }
   }
 
   Future<dynamic> getBestKeyForIdentity({
@@ -1751,35 +1750,17 @@ class PubkeyClient {
             'msk_proof': proof,
           };
     assertPubkeyWireHasNoMailbox(url: url, body: body);
-    final armed = await pubkeyRequest(
+    // Discovery arms the MSK. The vault host only evaluates the mailbox
+    // identity; it does not accept a principal registration. Posting there
+    // failed the OTP page after enroll/verify had already returned 200, so
+    // the device never stored the key or published a public key.
+    return pubkeyRequest(
       dio,
       url,
       method: 'POST',
       body: body,
       reconcileReplayAfterConnectionFailure: true,
     );
-    final publicKey = mskKey.publicKey;
-    if (directorySha == null &&
-        publicKey != null &&
-        identityId != null &&
-        vaultId != null) {
-      await pubkeyRequest(
-        dio,
-        joinUrl(vaultBaseUrl, '/v1/principals/msk'),
-        method: 'POST',
-        body: {
-          'identity_id': identityId,
-          'vault_id': vaultId,
-          'msk': {
-            'algorithm': mskAlgorithm,
-            'public_key': encodeBase64Url(publicKey),
-          },
-          'msk_proof': proof,
-          if (firstDevice != null) 'first_device': firstDevice,
-        },
-      );
-    }
-    return armed;
   }
 
   Future<dynamic> replaceMskForIdentity({

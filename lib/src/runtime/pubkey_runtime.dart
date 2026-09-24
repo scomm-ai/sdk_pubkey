@@ -402,10 +402,8 @@ class PubkeyRuntime {
     final vek = await store.getVek(crypto) ?? KeyHierarchy.generateVek(crypto);
     await store.setVek(crypto, vek);
     await vault.persist(vek);
-    final bound = await store.getIdentityId();
-    if (bound != null && bound.isNotEmpty) {
-      await client.uploadVault(email: email, mskKey: key, vault: vault, vek: vek);
-    }
+    // Discovery does not store vault ciphertext. The first device keeps it
+    // here. Public keys are published later through the directory routes.
   }
 
   String _localMskPrincipal() {
@@ -2155,6 +2153,8 @@ PubkeyClient createPubkeyClient(String email) =>
 PubkeyClient createDiscoveryPubkeyClient({
   String? readBaseUrl,
   String? writeBaseUrl,
+  String? vaultBaseUrl,
+  Dio? dio,
   bool rfc9980Ready = true,
 }) {
   final crypto = DartCryptoProvider();
@@ -2176,5 +2176,7 @@ PubkeyClient createDiscoveryPubkeyClient({
     smimeEngine: smime,
     readBaseUrl: readBaseUrl,
     writeBaseUrl: writeBaseUrl,
+    vaultBaseUrl: vaultBaseUrl,
+    dio: dio,
   );
 }
