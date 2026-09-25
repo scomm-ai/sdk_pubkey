@@ -5,6 +5,8 @@
 abstract final class DiscoveryTypes {
   static const encryptionKeyV1 =
       'https://discovery.scomm.ai/types/crypto/encryption-key/v1';
+  static const signingKeyV1 =
+      'https://discovery.scomm.ai/types/crypto/signing-key/v1';
   static const verificationKeyV1 =
       'https://discovery.scomm.ai/types/crypto/verification-key/v1';
   static const preferencesLanguagesV1 =

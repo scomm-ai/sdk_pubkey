@@ -17,9 +17,14 @@ void main() {
               {'family': 'openpgp', 'keyId': '1'},
             ],
           },
-          'verification': {
+          'signing': {
             'keys': [
               {'family': 'openpgp', 'keyId': '2'},
+            ],
+          },
+          'verification': {
+            'keys': [
+              {'family': 'openpgp', 'keyId': '3'},
             ],
           },
         },
@@ -30,6 +35,7 @@ void main() {
       'futureRoot': true,
     });
     expect(doc.encryptionKeys(), hasLength(1));
+    expect(doc.signingKeys(), hasLength(1));
     expect(doc.verificationKeys(), hasLength(1));
     expect(doc.raw['futureRoot'], isTrue);
     expect(
@@ -102,8 +108,7 @@ void main() {
     expect(doc.schemaVersion, '1.0');
     expect(doc.mailboxSha256, isA<String>());
     expect(doc.encryptionKeys(), isNotEmpty);
-    // Public Discovery Documents MUST NOT project verification keys (gated
-    // signing fetch). Encryption-only fixtures are expected.
+    // Public documents omit verification keys. Signing keys may be present.
     expect(doc.verificationKeys(), isEmpty);
   });
 

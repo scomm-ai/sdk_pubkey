@@ -520,9 +520,34 @@ class PubkeyClient {
     );
   }
 
-  /// Gated signing-key fetch. [email] is blinded locally; pubkey sees
-  /// `identity_id` only.
+  /// Ungated signing-key discovery. [keyId] is optional.
+  /// [email] is blinded locally; pubkey sees `sha256` only.
   Future<Map<String, dynamic>> getSigningKey({
+    String? email,
+    String? identityId,
+    String? keyId,
+    Map<String, dynamic>? capabilities,
+    Map<String, String> capabilityPolicy = const {},
+  }) async {
+    final selected = await getBestKey(
+      email: email,
+      identityId: identityId,
+      purpose: Purposes.signing,
+      keyId: keyId,
+      capabilities: capabilities,
+      capabilityPolicy: capabilityPolicy,
+    );
+    if (selected is! Map) {
+      throw PubkeyException(
+        ErrorCodes.providerUnavailable,
+        'Signing key response was not a JSON object',
+      );
+    }
+    return Map<String, dynamic>.from(selected);
+  }
+
+  /// Gated verification-key fetch. [keyId] is the id of the key that signed.
+  Future<Map<String, dynamic>> getVerificationKey({
     String? email,
     String? identityId,
     required String keyId,
@@ -530,14 +555,14 @@ class PubkeyClient {
     final selected = await getBestKey(
       email: email,
       identityId: identityId,
-      purpose: Purposes.signing,
+      purpose: Purposes.verification,
       keyId: keyId,
       capabilities: const {'families': {}},
     );
     if (selected is! Map) {
       throw PubkeyException(
         ErrorCodes.providerUnavailable,
-        'Signing key response was not a JSON object',
+        'Verification key response was not a JSON object',
       );
     }
     return Map<String, dynamic>.from(selected);
@@ -1640,19 +1665,22 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     requireMailboxSha256(identityId);
-    final isSigning = purpose == Purposes.signing || purpose == 'verification';
-    final resolved = isSigning && keyId != null && keyId.trim().isNotEmpty
-        ? (capabilities ?? const <String, dynamic>{'families': {}})
-        : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
-    if (isSigning && (keyId == null || keyId.trim().isEmpty)) {
+    final isVerification = purpose == Purposes.verification;
+    final hasKeyId = keyId != null && keyId.trim().isNotEmpty;
+    if (isVerification && !hasKeyId) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
-        'key_id is required to fetch a signing public key',
+        'key_id is required to fetch a verification public key',
       );
     }
+    final exact = hasKeyId &&
+        (isVerification || purpose == Purposes.signing);
+    final resolved = exact
+        ? (capabilities ?? const <String, dynamic>{'families': {}})
+        : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
     final params = <String, String>{
       'sha256': identityId,
-      if (!isSigning || resolved.isNotEmpty)
+      if (!exact || resolved.isNotEmpty)
         'capabilities': jsonEncode(resolved),
       if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,
       if (keyId != null && keyId.trim().isNotEmpty) 'key_id': keyId.trim(),

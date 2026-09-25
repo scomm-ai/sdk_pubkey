@@ -107,6 +107,17 @@ class DiscoveryDocument {
     );
   }
 
+  List<Map<String, dynamic>> signingKeys() {
+    final signing = crypto?['signing'];
+    if (signing is! Map) return const [];
+    final keys = signing['keys'];
+    if (keys is! List) return const [];
+    return [
+      for (final k in keys)
+        if (k is Map) Map<String, dynamic>.from(k),
+    ];
+  }
+
   List<Map<String, dynamic>> verificationKeys() {
     final ver = crypto?['verification'];
     if (ver is! Map) return const [];

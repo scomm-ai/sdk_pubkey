@@ -174,6 +174,7 @@ abstract final class SmimeAlgorithms {
 abstract final class Purposes {
   static const masterSigning = 'master-signing';
   static const signing = 'signing';
+  static const verification = 'verification';
   static const encryption = 'encryption';
   static const keyAgreement = 'key-agreement';
   static const kem = 'kem';
