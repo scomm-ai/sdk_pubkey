@@ -10,6 +10,7 @@ import '../identity.dart';
 abstract final class MailerOtpPurpose {
   static const enroll = 'enroll';
   static const replaceMsk = 'replace_msk';
+  static const vaultOpen = 'vault_open';
   static const recoveryEnvelope = 'recovery_envelope';
   static const recoveryGeneration = 'recovery_generation';
   static const vaultBackup = 'vault_backup';
@@ -91,7 +92,10 @@ class MailerClient {
     }
     final identityId = result['identity_id'];
     final otpGrant = result['otp_grant'];
-    final vaultPurpose = purpose != MailerOtpPurpose.enroll;
+    final vaultPurpose = purpose == MailerOtpPurpose.vaultOpen ||
+        purpose == MailerOtpPurpose.recoveryEnvelope ||
+        purpose == MailerOtpPurpose.recoveryGeneration ||
+        purpose == MailerOtpPurpose.vaultBackup;
     if (otpGrant is! String || otpGrant.isEmpty) {
       throw PubkeyException(
         ErrorCodes.otpGrantInvalid,

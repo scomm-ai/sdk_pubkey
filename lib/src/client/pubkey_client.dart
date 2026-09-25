@@ -240,6 +240,8 @@ class PubkeyClient {
     return encodeBase64Url(bytes);
   }
 
+  /// Directory principal. Unsalted SHA-256 of the canonical mailbox.
+  /// Vault calls use [binding.identityId] from the OPRF, not this value.
   Future<String> _accountPrincipal(String email) async {
     if (email.trim().isEmpty) {
       throw PubkeyException(
@@ -247,8 +249,7 @@ class PubkeyClient {
         'A local mailbox label is required',
       );
     }
-    final binding = await _requireBinding();
-    return binding.identityId!;
+    return emailSha256Hex(email);
   }
 
   Future<dynamic> mutate({
@@ -298,8 +299,10 @@ class PubkeyClient {
   /// into [crypto] (e.g. via `crypto.importPrivateKey`) and match
   /// [artifact]'s `public_material`.
   ///
-  /// [artifact] must contain `family`, `purpose` ('signing'), `algorithm`,
+  /// [artifact] must contain `family`, `purpose` ('verify'), `algorithm`,
   /// and `public_material` (base64url); this method adds `self_signature`.
+  /// A local `signing` purpose is rewritten to `verify` before the proof
+  /// is signed.
   Future<dynamic> setSigningKeyWithProof({
     required String email,
     required Map<String, dynamic> artifact,
@@ -312,6 +315,12 @@ class PubkeyClient {
       throw ArgumentError(
         'contentSigningKey or compositePopSigner is required',
       );
+    }
+    final wirePurpose = artifact['purpose'];
+    if (wirePurpose == Purposes.signing ||
+        wirePurpose == 'signing' ||
+        wirePurpose == 'verification') {
+      artifact = {...artifact, 'purpose': Purposes.verify};
     }
     final principal = await _accountPrincipal(email);
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -534,16 +543,20 @@ class PubkeyClient {
     );
   }
 
-  /// Gated verification-key fetch. [keyId] is the id of the key that signed.
+  /// Gated verify-key fetch. [keyId] is the id of the key that signed.
+  /// The locator is the unsalted mailbox hash. The vault OPRF identity is
+  /// not a discovery locator.
   Future<Map<String, dynamic>> getVerificationKey({
     String? email,
     String? identityId,
     required String keyId,
   }) async {
+    final unsalted = (email != null && email.trim().isNotEmpty)
+        ? emailSha256Hex(email)
+        : identityId;
     final selected = await getBestKey(
-      email: email,
-      identityId: identityId,
-      purpose: Purposes.verification,
+      identityId: unsalted,
+      purpose: Purposes.verify,
       keyId: keyId,
       capabilities: const {'families': {}},
     );
@@ -572,12 +585,10 @@ class PubkeyClient {
     return emailSha256Hex(mailboxOrSha256);
   }
 
-  /// Public discovery document. The path is `/v1/mailboxes/{locator}`.
-  /// The locator is the OPRF identity when the vault can evaluate it, because
-  /// published keys are stored under that identity. Otherwise the unsalted
-  /// mailbox hash.
+  /// Public discovery document. The path is `/v1/mailboxes/{mailboxSha256}`
+  /// where `mailboxSha256` is the unsalted hash of the canonical mailbox.
   Future<DiscoveryDocument> discoverMailbox(String mailbox) async {
-    final sha256 = await _publishedKeyLocator(mailbox);
+    final sha256 = _discoveryLocator(mailbox);
     final path = '/v1/mailboxes/${encodeMailboxSha256Path(sha256)}';
     final data = await pubkeyRequest(dio, joinUrl(readBaseUrl, path));
     if (data is! Map) {
@@ -1617,8 +1628,7 @@ class PubkeyClient {
     return identityIdFromOprfFinalize(output);
   }
 
-  /// Directory lookup. Published keys are stored under the OPRF identity, so
-  /// the query uses that identity as `sha256` when the vault can evaluate it.
+  /// Directory lookup. `sha256` is the unsalted mailbox hash for every purpose.
   Future<dynamic> selectDirectoryKey({
     required String email,
     String? purpose,
@@ -1627,22 +1637,12 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     return getBestKeyForIdentity(
-      identityId: await _publishedKeyLocator(email),
+      identityId: emailSha256Hex(email),
       purpose: purpose,
       keyId: keyId,
       capabilities: capabilities,
       capabilityPolicy: capabilityPolicy,
     );
-  }
-
-  /// OPRF identity for a published key. Falls back to the unsalted mailbox
-  /// hash when the vault evaluate endpoint is unreachable.
-  Future<String> _publishedKeyLocator(String email) async {
-    try {
-      return await directoryIdentityId(email);
-    } catch (_) {
-      return emailSha256Hex(email);
-    }
   }
 
   Future<dynamic> getBestKeyForIdentity({
@@ -1653,21 +1653,21 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     requireMailboxSha256(identityId);
-    if (purpose == Purposes.signing) {
+    if (purpose == Purposes.signing || purpose == 'verification') {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
-        'Signing keys are not served by Discovery',
+        'purpose must be verify',
       );
     }
-    final isVerification = purpose == Purposes.verification;
+    final isVerify = purpose == Purposes.verify;
     final hasKeyId = keyId != null && keyId.trim().isNotEmpty;
-    if (isVerification && !hasKeyId) {
+    if (isVerify && !hasKeyId) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
-        'key_id is required to fetch a verification public key',
+        'key_id is required to fetch a verify key',
       );
     }
-    final exact = hasKeyId && isVerification;
+    final exact = hasKeyId && isVerify;
     final resolved = exact
         ? (capabilities ?? const <String, dynamic>{'families': {}})
         : (capabilities ?? await discoveryCapabilities(capabilityPolicy));

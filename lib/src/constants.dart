@@ -174,7 +174,11 @@ abstract final class SmimeAlgorithms {
 abstract final class Purposes {
   static const masterSigning = 'master-signing';
   static const signing = 'signing';
-  static const verification = 'verification';
+
+  /// Discovery purpose for a signature-check public key.
+  /// The private signing key is not a discovery purpose.
+  static const verify = 'verify';
+  static const verification = verify;
   static const encryption = 'encryption';
   static const keyAgreement = 'key-agreement';
   static const kem = 'kem';

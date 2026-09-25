@@ -11,7 +11,8 @@ Applications (Flutter, browser, Outlook, webview mail)
                 │
                 ▼
      Discovery / Pubkey client SDKs (this repo)
-     JS: packages/js (@scomm/discovery)   Dart: secmail_pubkey_sdk
+     Rust: crates/discovery (WASM from the same crate)
+     Dart: secmail_pubkey_sdk (Flutter binding of the same wire rules)
                 │
                 │  depends on (format only)
                 ▼
