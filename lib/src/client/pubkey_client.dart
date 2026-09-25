@@ -520,8 +520,7 @@ class PubkeyClient {
     );
   }
 
-  /// Ungated signing-key discovery. [keyId] is optional.
-  /// [email] is blinded locally; pubkey sees `sha256` only.
+  /// Signing keys are private. Discovery does not store or return them.
   Future<Map<String, dynamic>> getSigningKey({
     String? email,
     String? identityId,
@@ -529,21 +528,10 @@ class PubkeyClient {
     Map<String, dynamic>? capabilities,
     Map<String, String> capabilityPolicy = const {},
   }) async {
-    final selected = await getBestKey(
-      email: email,
-      identityId: identityId,
-      purpose: Purposes.signing,
-      keyId: keyId,
-      capabilities: capabilities,
-      capabilityPolicy: capabilityPolicy,
+    throw PubkeyException(
+      ErrorCodes.invalidRequest,
+      'Signing keys are not served by Discovery',
     );
-    if (selected is! Map) {
-      throw PubkeyException(
-        ErrorCodes.providerUnavailable,
-        'Signing key response was not a JSON object',
-      );
-    }
-    return Map<String, dynamic>.from(selected);
   }
 
   /// Gated verification-key fetch. [keyId] is the id of the key that signed.
@@ -1665,6 +1653,12 @@ class PubkeyClient {
     Map<String, String> capabilityPolicy = const {},
   }) async {
     requireMailboxSha256(identityId);
+    if (purpose == Purposes.signing) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'Signing keys are not served by Discovery',
+      );
+    }
     final isVerification = purpose == Purposes.verification;
     final hasKeyId = keyId != null && keyId.trim().isNotEmpty;
     if (isVerification && !hasKeyId) {
@@ -1673,8 +1667,7 @@ class PubkeyClient {
         'key_id is required to fetch a verification public key',
       );
     }
-    final exact = hasKeyId &&
-        (isVerification || purpose == Purposes.signing);
+    final exact = hasKeyId && isVerification;
     final resolved = exact
         ? (capabilities ?? const <String, dynamic>{'families': {}})
         : (capabilities ?? await discoveryCapabilities(capabilityPolicy));

@@ -17,11 +17,6 @@ void main() {
               {'family': 'openpgp', 'keyId': '1'},
             ],
           },
-          'signing': {
-            'keys': [
-              {'family': 'openpgp', 'keyId': '2'},
-            ],
-          },
           'verification': {
             'keys': [
               {'family': 'openpgp', 'keyId': '3'},
@@ -35,7 +30,6 @@ void main() {
       'futureRoot': true,
     });
     expect(doc.encryptionKeys(), hasLength(1));
-    expect(doc.signingKeys(), hasLength(1));
     expect(doc.verificationKeys(), hasLength(1));
     expect(doc.raw['futureRoot'], isTrue);
     expect(
