@@ -15,6 +15,16 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: "3.5.0"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build scomm_vault
+        run: |
+          sha=$(tr -d '[:space:]' < native/CKVF_SHA)
+          git init /tmp/ckvf
+          git -C /tmp/ckvf remote add origin https://github.com/scomm-public/ckvf.git
+          git -C /tmp/ckvf fetch --depth 1 origin "$sha"
+          git -C /tmp/ckvf checkout FETCH_HEAD
+          cargo build --release --manifest-path /tmp/ckvf/packages/rust/Cargo.toml
+          cp /tmp/ckvf/packages/rust/target/release/libscomm_vault.so native/libscomm_vault.so
       - name: Resolve dependencies
         run: dart pub get
       - name: Analyze

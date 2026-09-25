@@ -1,5 +1,5 @@
 name: secmail_pubkey_sdk
-description: SComm pubkey protocol adapter over the CKVF Dart SDK.
+description: SComm pubkey protocol adapter. Canonicalization uses the CKVF Rust library.
 version: 1.2.0
 publish_to: none
 
@@ -7,12 +7,8 @@ environment:
   sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
-  ckvf:
-    git:
-      url: https://github.com/scomm-public/ckvf.git
-      path: packages/dart
-      ref: 2965456c9eb89cd89f20511dba247abec952b6d0
   crypto: ^3.0.6
+  ffi: ^2.1.4
   cryptography: ^2.7.0
   dio: ^5.7.0
   ristretto255: ^1.0.2

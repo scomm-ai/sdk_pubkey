@@ -1,4 +1,5 @@
-/// SComm pubkey protocol adapter (HTTP, enrollment, Vault) over CKVF.
+/// SComm pubkey protocol adapter. Canonical JSON and base64url go through
+/// the CKVF Rust library (`scomm_vault`).
 library;
 
 export 'src/canonical.dart';
@@ -23,6 +24,7 @@ export 'src/engines/smime.dart';
 export 'src/errors.dart';
 export 'src/identity.dart';
 export 'src/jcs.dart';
+export 'src/native_vault.dart' show ensureScommVault;
 export 'src/locator.dart';
 export 'src/registry.dart';
 // `createPubkeyRuntime`/`createPubkeyClient`/`createDiscoveryPubkeyClient`
