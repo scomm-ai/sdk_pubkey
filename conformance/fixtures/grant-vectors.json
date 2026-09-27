@@ -1,0 +1,109 @@
+{
+  "description": "Scomm/grant/v1 vectors. Verify each valid token with the key set at now_ms and audience https://vault.scomm.ai. Each invalid token must be rejected for the stated reason.",
+  "insecure_test_material": true,
+  "seed_hex": "4242424242424242424242424242424242424242424242424242424242424242",
+  "now_ms": 1790000000000,
+  "key_set": {
+    "test-2026-09": {
+      "alg": "Ed25519",
+      "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI"
+    }
+  },
+  "fields": [
+    "iss",
+    "aud",
+    "kid",
+    "purpose",
+    "identity_id",
+    "msk_fingerprint",
+    "amr",
+    "idp",
+    "exp",
+    "jti"
+  ],
+  "valid": [
+    {
+      "name": "vault_open via email OTP",
+      "claims": {
+        "iss": "https://discovery.scomm.ai",
+        "kid": "test-2026-09",
+        "identity_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "exp": "1790000300000",
+        "aud": "https://vault.scomm.ai",
+        "purpose": "vault_open",
+        "msk_fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+        "amr": "otp",
+        "idp": "",
+        "jti": "AAECAwQFBgcICQoLDA0ODw"
+      },
+      "text": "Scomm/grant/v1\niss=https://discovery.scomm.ai\naud=https://vault.scomm.ai\nkid=test-2026-09\npurpose=vault_open\nidentity_id=cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\nmsk_fingerprint=1111111111111111111111111111111111111111111111111111111111111111\namr=otp\nidp=\nexp=1790000300000\njti=AAECAwQFBgcICQoLDA0ODw\n",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT12YXVsdF9vcGVuCmlkZW50aXR5X2lkPWNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2QKbXNrX2ZpbmdlcnByaW50PTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEKYW1yPW90cAppZHA9CmV4cD0xNzkwMDAwMzAwMDAwCmp0aT1BQUVDQXdRRkJnY0lDUW9MREEwT0R3Cg.ZardTfih1udau2QA7-tOIGVGsx8aHrhOgFEaerYfdRji_I6IDiqPYp2tt96gFdcO_2BPbSoJ86P3Jpox-pk-CA"
+    },
+    {
+      "name": "recovery_generation via Google ID token",
+      "claims": {
+        "iss": "https://discovery.scomm.ai",
+        "kid": "test-2026-09",
+        "identity_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "exp": "1790000300000",
+        "aud": "https://vault.scomm.ai",
+        "purpose": "recovery_generation",
+        "msk_fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",
+        "amr": "id_token",
+        "idp": "google",
+        "jti": "EBESExQVFhcYGRobHB0eHw"
+      },
+      "text": "Scomm/grant/v1\niss=https://discovery.scomm.ai\naud=https://vault.scomm.ai\nkid=test-2026-09\npurpose=recovery_generation\nidentity_id=cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\nmsk_fingerprint=1111111111111111111111111111111111111111111111111111111111111111\namr=id_token\nidp=google\nexp=1790000300000\njti=EBESExQVFhcYGRobHB0eHw\n",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT1yZWNvdmVyeV9nZW5lcmF0aW9uCmlkZW50aXR5X2lkPWNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2QKbXNrX2ZpbmdlcnByaW50PTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEKYW1yPWlkX3Rva2VuCmlkcD1nb29nbGUKZXhwPTE3OTAwMDAzMDAwMDAKanRpPUVCRVNFeFFWRmhjWUdSb2JIQjBlSHcK.LjQC98YukESNzOtJgY_j39wHcZP7z2L_E5kR6DMCd9YugwPaNEagII5ci1Xe4TWDlPU8PilC5K_Ap7t5MgFbCQ"
+    },
+    {
+      "name": "replace_msk vault grant listing two audiences",
+      "claims": {
+        "iss": "https://discovery.scomm.ai",
+        "kid": "test-2026-09",
+        "identity_id": "abababababababababababababababababababababababababababababababab",
+        "exp": "1790000300000",
+        "aud": "https://vault.scomm.ai https://vault-eu.scomm.ai",
+        "purpose": "replace_msk",
+        "msk_fingerprint": "2222222222222222222222222222222222222222222222222222222222222222",
+        "amr": "otp",
+        "idp": "",
+        "jti": "ICEiIyQlJicoKSorLC0uLw"
+      },
+      "text": "Scomm/grant/v1\niss=https://discovery.scomm.ai\naud=https://vault.scomm.ai https://vault-eu.scomm.ai\nkid=test-2026-09\npurpose=replace_msk\nidentity_id=abababababababababababababababababababababababababababababababab\nmsk_fingerprint=2222222222222222222222222222222222222222222222222222222222222222\namr=otp\nidp=\nexp=1790000300000\njti=ICEiIyQlJicoKSorLC0uLw\n",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpIGh0dHBzOi8vdmF1bHQtZXUuc2NvbW0uYWkKa2lkPXRlc3QtMjAyNi0wOQpwdXJwb3NlPXJlcGxhY2VfbXNrCmlkZW50aXR5X2lkPWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIKbXNrX2ZpbmdlcnByaW50PTIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIKYW1yPW90cAppZHA9CmV4cD0xNzkwMDAwMzAwMDAwCmp0aT1JQ0VpSXlRbEppY29LU29yTEMwdUx3Cg.Snm4WJQ3JiIL1pSVxQ4rjDwEfNbb67kkMP3-5tyvbovvKU0lqs_-bfnfinqzPRurBd_MeSTbV2Hem3Yj2tIADA"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "text changed after signing",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT12YXVsdF9iYWNrdXAKaWRlbnRpdHlfaWQ9Y2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZAptc2tfZmluZ2VycHJpbnQ9MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMQphbXI9b3RwCmlkcD0KZXhwPTE3OTAwMDAzMDAwMDAKanRpPUFBRUNBd1FGQmdjSUNRb0xEQTBPRHcK.ZardTfih1udau2QA7-tOIGVGsx8aHrhOgFEaerYfdRji_I6IDiqPYp2tt96gFdcO_2BPbSoJ86P3Jpox-pk-CA",
+      "reason": "signature"
+    },
+    {
+      "name": "expired",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT12YXVsdF9vcGVuCmlkZW50aXR5X2lkPWNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2QKbXNrX2ZpbmdlcnByaW50PTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEKYW1yPW90cAppZHA9CmV4cD0xNzg5OTk5OTk5OTk5Cmp0aT1BQUVDQXdRRkJnY0lDUW9MREEwT0R3Cg.gVZVYEtS9ISRs0EDq7d6mUTWOy6keGb2_hKnYm9mtqZWoLQulU0lYZP0Zfgx7znNyaVa9YH22MG6RS32Gh4MBw",
+      "reason": "expired"
+    },
+    {
+      "name": "audience is discovery only",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL2Rpc2NvdmVyeS5zY29tbS5haQpraWQ9dGVzdC0yMDI2LTA5CnB1cnBvc2U9dmF1bHRfb3BlbgppZGVudGl0eV9pZD1jZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkCm1za19maW5nZXJwcmludD0xMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExCmFtcj1vdHAKaWRwPQpleHA9MTc5MDAwMDMwMDAwMApqdGk9QUFFQ0F3UUZCZ2NJQ1FvTERBME9Edwo.R6RMvV9G1dSVrdI_nbmv5QHR1NIPUrXxTuNOX24H4_UN34epyenKK4x1tbFn4hsZBuT7w5OwXK2rQL1E3kjlCA",
+      "reason": "audience"
+    },
+    {
+      "name": "unknown kid",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD1ub3QtcHVibGlzaGVkCnB1cnBvc2U9dmF1bHRfb3BlbgppZGVudGl0eV9pZD1jZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkCm1za19maW5nZXJwcmludD0xMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExCmFtcj1vdHAKaWRwPQpleHA9MTc5MDAwMDMwMDAwMApqdGk9QUFFQ0F3UUZCZ2NJQ1FvTERBME9Edwo.vSA1AwaR8mNhag7_R-vglc7Ywr616N1me9Y1Qc3TlLCzqOipCPnsj2HeFltpDjm9MsAwGecdNExSJ9vysRRFBg",
+      "reason": "kid"
+    },
+    {
+      "name": "field order changed",
+      "token": "U2NvbW0vZ3JhbnQvdjEKYXVkPWh0dHBzOi8vdmF1bHQuc2NvbW0uYWkKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT12YXVsdF9vcGVuCmlkZW50aXR5X2lkPWNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2QKbXNrX2ZpbmdlcnByaW50PTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEKYW1yPW90cAppZHA9CmV4cD0xNzkwMDAwMzAwMDAwCmp0aT1BQUVDQXdRRkJnY0lDUW9MREEwT0R3Cg.V58MBjraJWO5O2dGJ0Htbtm1cWFaqPHX_oQUv9wxitUbF8qB-lU1FUZlqq8oJa9r3PWktax2FwPxHZWG_77GDg",
+      "reason": "format"
+    },
+    {
+      "name": "signature truncated",
+      "token": "U2NvbW0vZ3JhbnQvdjEKaXNzPWh0dHBzOi8vZGlzY292ZXJ5LnNjb21tLmFpCmF1ZD1odHRwczovL3ZhdWx0LnNjb21tLmFpCmtpZD10ZXN0LTIwMjYtMDkKcHVycG9zZT12YXVsdF9vcGVuCmlkZW50aXR5X2lkPWNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2RjZGNkY2QKbXNrX2ZpbmdlcnByaW50PTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEKYW1yPW90cAppZHA9CmV4cD0xNzkwMDAwMzAwMDAwCmp0aT1BQUVDQXdRRkJnY0lDUW9MREEwT0R3Cg.ZardTfih1udau2QA7-tOIGVGsx8aHrhOgFEaerYf",
+      "reason": "signature"
+    }
+  ]
+}

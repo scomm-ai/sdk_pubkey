@@ -3,6 +3,7 @@
 library;
 
 export 'src/canonical.dart';
+export 'src/client/grant_v1.dart';
 export 'src/client/identity_wire.dart';
 export 'src/client/mailer_client.dart';
 export 'src/client/pubkey_client.dart';
