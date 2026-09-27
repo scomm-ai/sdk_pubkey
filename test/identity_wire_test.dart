@@ -7,7 +7,7 @@ import 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('enroll, directory, and recovery omit mailbox addresses', () async {
+  test('enroll and directory omit mailbox addresses on pubkey host', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();
     dio.httpClientAdapter = _Capture((options) async {
@@ -22,11 +22,6 @@ void main() {
           'otp_grant': 'header.payload.sig',
         });
       }
-      if (path.endsWith('/v1/id/oprf/evaluate')) {
-        final body = Map<String, dynamic>.from(options.data as Map);
-        expect(body.keys, ['blind']);
-        return _json({'evaluation': body['blind']});
-      }
       if (path.endsWith('/v1/keys')) {
         expect(options.uri.queryParameters.containsKey('identity_id'), isFalse);
         expect(options.uri.queryParameters['sha256'], hasLength(64));
@@ -38,20 +33,6 @@ void main() {
         expect(encoded.contains('@'), isFalse);
         expect(options.data, isNot(contains('email')));
         return _json({'ok': true});
-      }
-      if (path.endsWith('/v1/recovery/envelope/fetch')) {
-        final encoded = jsonEncode(options.data);
-        expect(encoded.contains('@'), isFalse);
-        expect(options.data, isNot(contains('email')));
-        return _json({
-          'vek_envelope': {
-            'kdf': 'argon2id',
-            'salt': 'AAAA',
-            'iv': 'AAAA',
-            'ciphertext': 'AAAA',
-            'kdf_params': {'memory': 1, 'iterations': 1, 'parallelism': 1},
-          },
-        });
       }
       return _json({'error': 'unexpected', 'message': path}, status: 500);
     });
@@ -73,8 +54,6 @@ void main() {
       otp: '0123456789A',
       purpose: MailerOtpPurpose.enroll,
     );
-    await runtime.store.setIdentityId(grant.requireIdentityId);
-    await runtime.store.setVaultId('cd' * 32);
     // ignore: deprecated_member_use_from_same_package
     await runtime.client.enrollMskForIdentity(
       identityId: grant.requireIdentityId,
@@ -82,10 +61,6 @@ void main() {
       mskPublicKey: Uint8List(32),
     );
     await runtime.client.selectDirectoryKey(email: 'bob@example.com');
-    await runtime.client.fetchRecoveryEnvelopeWithGrant(
-      identityId: grant.requireIdentityId,
-      otpGrant: grant.otpGrant,
-    );
 
     final mailer = seen.where((r) => r.uri.host == 'mailer.test').toList();
     final pubkey = seen.where((r) => r.uri.host == 'pubkey.test').toList();
@@ -149,60 +124,6 @@ void main() {
     expect(seen, hasLength(1));
     expect(seen.single.host, 'pubkey.test');
     expect(seen.single.path, '/v1/msk/arm');
-  });
-
-  test('vault reads are authorized and not keyed by email hash', () async {
-    final seen = <RequestOptions>[];
-    final dio = Dio();
-    const vaultId =
-        'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
-    dio.httpClientAdapter = _Capture((options) async {
-      seen.add(options);
-      final path = options.uri.path;
-      if (path.endsWith('/pending-mutations')) {
-        return _json({'mutations': []});
-      }
-      if (path.contains('/generation/')) {
-        return _json({'vault': null});
-      }
-      if (path.endsWith('/current')) {
-        return _json({
-          'msk_public_key': 'AAAA',
-          'vault': null,
-        });
-      }
-      return _json({'error': 'unexpected', 'message': path}, status: 500);
-    });
-    final runtime = createPubkeyRuntime(
-      'alice@example.com',
-      dio: dio,
-      readBaseUrl: 'http://pubkey.test',
-      writeBaseUrl: 'http://pubkey.test',
-      mailerBaseUrl: 'http://mailer.test',
-    );
-    await runtime.store.setIdentityId('ab' * 32);
-    await runtime.store.setVaultId(vaultId);
-    runtime.client.deviceSigningKey = await runtime.crypto.generateMSK();
-
-    await runtime.client.fetchArmedMskPublicKey(email: 'alice@example.com');
-    await runtime.client
-        .fetchPendingHighRiskMutations(email: 'alice@example.com');
-    await runtime.client.downloadVaultGeneration(
-      email: 'alice@example.com',
-      generation: 2,
-      vek: Uint8List(32),
-    );
-    await runtime.client
-        .fetchCurrentVaultGenerationInfo(email: 'alice@example.com');
-
-    expect(seen, isNotEmpty);
-    for (final request in seen) {
-      expect(request.uri.path, contains(vaultId));
-      expect(request.uri.path.contains('envelope-exists'), isFalse);
-      expect(request.uri.path.contains('backup-exists'), isFalse);
-      expect(request.headers['Authorization'], startsWith('Device '));
-      expect(request.uri.toString().contains('@'), isFalse);
-    }
   });
 }
 

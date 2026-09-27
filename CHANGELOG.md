@@ -1,27 +1,23 @@
 # Changelog
 
-## Unreleased
+## 2.0.0
 
-- New package `packages/scomm_vault_client` (0.1.0): vault-host client
-  with identity OPRF proof verification, pepper POPRF (`HostPepperOprf` for
-  the `ckvf` slot APIs), key listing, read authorization, and grant parsing.
-  Pure Dart; checked against the ckvf `pepper-oprf` vectors.
-- `parseGrantV1` reads a `Scomm/grant/v1` vault grant (purpose, audience,
-  expiry, MSK fingerprint) without verifying it. Directory grants are opaque
-  and return null. Shared vectors live in
-  `conformance/fixtures/grant-vectors.json`.
-- MSK arming is one call. `verifyEnrollForIdentity` posts to `/v1/msk/arm` and
-  `verifyReplaceForIdentity` to `/v1/msk/replace/arm`, each with the grant,
-  the MSK public key, and the MSK proof. `enrollMskForIdentity` and
-  `replaceMskForIdentity` are deprecated and no longer call the server.
-- `MailerClient.requestOtp` and `createIdTokenChallenge` require
-  `mskPublicKey` for `enroll` and `replace_msk` (sent as `msk_jkt`).
-- `MailerOtpGrant.vaultGrant` carries the signed vault grant returned with
-  `replace_msk`.
-- A directory without the single-call routes fails with
-  `directory_upgrade_required`.
-- Fix: the first native base64/JCS call in a process no longer throws
-  `LateInitializationError`.
+- **BREAKING:** `secmail_pubkey_sdk` is discovery, mailer, keys, and MSK only.
+  Writable legacy vault code under `lib/src/vault/*` is removed. Vault
+  create/open/sync/pairing/recovery live in `packages/scomm_vault_client`
+  (`KeyVault`). `PubkeyRuntime` no longer holds a `Vault` / `DeviceKeyStore`.
+- Read-only `LegacyVaultMigrator` opens legacy SDK vault ciphertext and builds
+  a CKVF generation-1 container (device + optional password/recovery pepper
+  slots) via `scomm_vault_client`.
+- Path dependency on `scomm_vault_client` (0.2.0) for the migrator.
+- Dropped PBKDF2 `wrapVault` / `unwrapVault` / `exportKeyPackage` /
+  `importKeyPackage`.
+- `PubkeyClient` vault-host routes remain removed (use `VaultHostClient`).
+- Conformance fixture `mailer-otp.json` verify body uses `sha256` (not email).
+- `scomm_vault_client` 0.2.0: `KeyVault.rotateSigningKey` (D8 retire +
+  `deletePrivate` for sign-only keys).
+- Prior `1.3.x` Unreleased items (single-call MSK arm, grant parsing, mailer
+  ID-token, LateInitializationError fix) ship with this cutover.
 
 ## 1.3.0
 

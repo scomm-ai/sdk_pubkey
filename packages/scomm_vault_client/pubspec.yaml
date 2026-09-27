@@ -1,6 +1,6 @@
 name: scomm_vault_client
 description: Scomm.AI vault client. Local-first CKVF key vault, device pairing, identity OPRF, pepper POPRF, and vault-host routes.
-version: 0.1.0
+version: 0.2.0
 publish_to: none
 
 environment:

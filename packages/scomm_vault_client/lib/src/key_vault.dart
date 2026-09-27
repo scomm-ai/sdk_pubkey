@@ -324,6 +324,41 @@ class KeyVault {
           {String reason = 'user-requested'}) =>
       commit((v) => deletePrivateKey(v, crypto, absoluteKeyId, reason: reason));
 
+  /// D8 signing retention: retire a sign-only key and delete its private
+  /// material (tombstone kept). Decryption / dual-purpose keys keep their
+  /// private key — call [retire] alone for those.
+  Future<void> rotateSigningKey(
+    String absoluteKeyId, {
+    String? newPreferredId,
+    String family = 'smime',
+    String reason = 'policy',
+  }) =>
+      commit((v) async {
+        final key = getKey(v, absoluteKeyId);
+        if (key == null) {
+          throw VaultClientException(
+              'key_not_found', 'no key $absoluteKeyId');
+        }
+        final purposes = key.purpose.map((p) => p.toLowerCase()).toSet();
+        final signOnly = purposes.contains('sign') &&
+            !purposes.contains('encrypt') &&
+            !purposes.contains('decrypt') &&
+            !purposes.contains('key_agreement');
+        var next = v;
+        if (key.status == 'active') {
+          next = await retireKey(next, crypto, absoluteKeyId);
+        }
+        if (signOnly && getKey(next, absoluteKeyId)?.privateKey != null) {
+          next = await deletePrivateKey(next, crypto, absoluteKeyId,
+              reason: reason);
+        }
+        if (newPreferredId != null) {
+          next = await setPreferredKey(next, crypto,
+              family: family, purpose: 'sign', absoluteKeyId: newPreferredId);
+        }
+        return next;
+      });
+
   Future<void> setPreferred(
           String family, String purpose, String? absoluteKeyId) =>
       commit((v) => setPreferredKey(v, crypto,

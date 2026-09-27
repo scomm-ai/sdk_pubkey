@@ -385,7 +385,7 @@ class DartCryptoProvider extends CryptoProvider {
     String algorithm,
     Map<String, dynamic> params,
   ) async {
-    if (algorithm != vaultKdf && algorithm != 'pbkdf2-sha256') {
+    if (algorithm != 'pbkdf2-sha256') {
       throw PubkeyException(
         ErrorCodes.unsupportedAlgorithm,
         'Cannot derive bits with $algorithm',
@@ -393,7 +393,7 @@ class DartCryptoProvider extends CryptoProvider {
     }
     final passphrase = params['passphrase'] as String? ?? '';
     final salt = params['salt'] as List<int>? ?? const <int>[];
-    final iterations = params['iterations'] as int? ?? vaultPbkdf2Iterations;
+    final iterations = params['iterations'] as int? ?? 210000;
     final bits = params['bits'] as int? ?? 256;
     final pbkdf2 = Pbkdf2(
       macAlgorithm: Hmac.sha256(),
@@ -405,83 +405,6 @@ class DartCryptoProvider extends CryptoProvider {
       nonce: salt,
     );
     return Uint8List.fromList(await key.extractBytes());
-  }
-
-  Future<SecretKey> _vaultKey(
-    String passphrase,
-    List<int> salt,
-    int iterations,
-  ) async {
-    final pbkdf2 = Pbkdf2(
-      macAlgorithm: Hmac.sha256(),
-      iterations: iterations,
-      bits: 256,
-    );
-    return pbkdf2.deriveKey(
-      secretKey: SecretKey(utf8.encode(passphrase)),
-      nonce: salt,
-    );
-  }
-
-  @override
-  Future<VaultWrap> wrapVault(
-    List<int> plaintext,
-    String passphrase, {
-    List<int>? salt,
-    List<int>? iv,
-    int? iterations,
-  }) async {
-    final iter = iterations ?? vaultPbkdf2Iterations;
-    final saltBytes = salt == null
-        ? _randomBytes(vaultSaltBytes)
-        : Uint8List.fromList(salt);
-    final ivBytes = iv == null
-        ? _randomBytes(vaultIvBytes)
-        : Uint8List.fromList(iv);
-    final key = await _vaultKey(passphrase, saltBytes, iter);
-    final box = await _aesGcm.encrypt(
-      plaintext,
-      secretKey: key,
-      nonce: ivBytes,
-    );
-    final ciphertext = Uint8List.fromList([...box.cipherText, ...box.mac.bytes]);
-    return VaultWrap(
-      salt: saltBytes,
-      iv: ivBytes,
-      iterations: iter,
-      ciphertext: ciphertext,
-    );
-  }
-
-  @override
-  Future<Uint8List> unwrapVault(
-    List<int> ciphertext,
-    String passphrase,
-    List<int> salt,
-    List<int> iv,
-    int iterations,
-  ) async {
-    if (ciphertext.length < 16) {
-      throw PubkeyException(
-        ErrorCodes.vaultCorrupt,
-        'Vault ciphertext is truncated',
-      );
-    }
-    final key = await _vaultKey(passphrase, salt, iterations);
-    final cipherText = ciphertext.sublist(0, ciphertext.length - 16);
-    final mac = Mac(ciphertext.sublist(ciphertext.length - 16));
-    try {
-      final plain = await _aesGcm.decrypt(
-        SecretBox(cipherText, nonce: iv, mac: mac),
-        secretKey: key,
-      );
-      return Uint8List.fromList(plain);
-    } catch (_) {
-      throw PubkeyException(
-        ErrorCodes.vaultAuthenticationFailure,
-        'Vault authentication failed',
-      );
-    }
   }
 
   @override

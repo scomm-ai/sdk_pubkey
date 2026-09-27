@@ -1,5 +1,9 @@
 /// SComm pubkey protocol adapter. Canonical JSON and base64url go through
 /// the CKVF Rust library (`scomm_vault`).
+///
+/// Vault create/open/sync/pairing/recovery live in
+/// `package:scomm_vault_client`. This package keeps discovery, MSK arming,
+/// mailer OTP, and a [LegacyVaultMigrator] for one-shot CKVF cutover.
 library;
 
 export 'src/canonical.dart';
@@ -37,10 +41,5 @@ export 'src/registry.dart';
 // 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart' directly.
 export 'src/runtime/pubkey_runtime.dart'
     hide createPubkeyRuntime, createPubkeyClient, createDiscoveryPubkeyClient;
-export 'src/vault/device_pairing.dart';
-export 'src/vault/key_hierarchy.dart';
-export 'src/vault/recovery_code.dart';
-export 'src/vault/store.dart';
-export 'src/vault/vault.dart';
-export 'src/vault/vault_backup_store.dart';
-export 'src/vault/vault_export.dart';
+export 'src/vault/legacy_decode.dart';
+export 'src/vault/legacy_migrator.dart';

@@ -114,24 +114,4 @@ class UnimplementedNativeCryptoProvider extends NativeCryptoProvider {
   @override
   Future<PortablePrivateKey> exportPrivateKey(KeyRef key) async =>
       _unavailable();
-
-  @override
-  Future<VaultWrap> wrapVault(
-    List<int> plaintext,
-    String passphrase, {
-    List<int>? salt,
-    List<int>? iv,
-    int? iterations,
-  }) async =>
-      _unavailable();
-
-  @override
-  Future<Uint8List> unwrapVault(
-    List<int> ciphertext,
-    String passphrase,
-    List<int> salt,
-    List<int> iv,
-    int iterations,
-  ) async =>
-      _unavailable();
 }

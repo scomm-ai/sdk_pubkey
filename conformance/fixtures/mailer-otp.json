@@ -17,7 +17,7 @@
     },
     "POST /v1/otp/verify": {
       "body": {
-        "email": "<canonical>",
+        "sha256": "<64 lowercase hex mailbox sha256>",
         "otp": "<11 Base62>",
         "purpose": "enroll|replace_msk|recovery_envelope|recovery_generation"
       },

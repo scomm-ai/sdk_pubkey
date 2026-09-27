@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -53,8 +53,6 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
-      client.bindIdentity();
-
       final artifact = {
         'family': 'pgp',
         'purpose': 'signing',
@@ -76,7 +74,7 @@ void main() {
       expect(selfSignature['algorithm'], 'openpgp-ed25519');
 
       // Independently reconstruct what the server checks and verify with the
-      // content key's *public* key only (never its private key) — this is
+      // content key's *public* key only (never its private key) â€” this is
       // exactly the server-side verification shape.
       final popBytes = canonicalSignedBytes(
         protocolVersion: protocolVersion,
@@ -102,7 +100,7 @@ void main() {
       expect(verified, isTrue);
 
       // The self_signature's timestamp/nonce must match the outer MSK
-      // envelope's — recompute with a *different* nonce and confirm it no
+      // envelope's â€” recompute with a *different* nonce and confirm it no
       // longer verifies, proving the binding is load-bearing.
       final mismatchedBytes = canonicalSignedBytes(
         protocolVersion: protocolVersion,
@@ -143,7 +141,6 @@ void main() {
         writeBaseUrl: 'https://api.pubkey.test',
         dio: dio,
       );
-      client.bindIdentity();
       await client.setSigningKeyWithProof(
         email: 'alice@example.com',
         artifact: {

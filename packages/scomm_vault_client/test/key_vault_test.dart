@@ -217,4 +217,24 @@ void main() {
     expect(env['principal'], identityId);
     expect((env['payload'] as Map)['device_id'], 'dev-1');
   });
+
+  test('rotateSigningKey retires and deletes sign-only private material',
+      () async {
+    final v = await newVault();
+    final oldId = await addKey(v);
+    final pair = await crypto.ed25519Generate();
+    final newId = await v.importKey(
+      family: 'smime',
+      encoding: 'pkcs8',
+      algorithm: 'Ed25519',
+      purpose: const ['sign'],
+      privateKey: buildPkcs8Ed25519(pair.privateKey, pair.publicKey),
+      publicKey: buildSpkiEd25519(pair.publicKey),
+    );
+    await v.rotateSigningKey(oldId, newPreferredId: newId, family: 'smime');
+    expect(v.key(oldId)!.status, 'retired');
+    expect(v.key(oldId)!.privateKey, isNull);
+    expect(v.preferredKey('smime', 'sign'), newId);
+    expect(v.vault.payload.tombstones, isNotEmpty);
+  });
 }

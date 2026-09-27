@@ -83,20 +83,6 @@ class PortablePrivateKey {
   final bool extractable;
 }
 
-class VaultWrap {
-  const VaultWrap({
-    required this.salt,
-    required this.iv,
-    required this.iterations,
-    required this.ciphertext,
-  });
-
-  final Uint8List salt;
-  final Uint8List iv;
-  final int iterations;
-  final Uint8List ciphertext;
-}
-
 /// Cryptographic abstraction. Implementations must not know HTTP or OTP.
 /// Algorithm names are protocol identifiers; [id] is an implementation choice.
 abstract class CryptoProvider {
@@ -215,14 +201,6 @@ abstract class CryptoProvider {
     );
   }
 
-  Future<VaultWrap> wrapVault(
-    List<int> plaintext,
-    String passphrase, {
-    List<int>? salt,
-    List<int>? iv,
-    int? iterations,
-  });
-
   Future<KeyRef> generateDeviceKey({
     bool extractable = false,
     String? protection,
@@ -286,14 +264,9 @@ abstract class CryptoProvider {
     );
   }
 
-  /// Derives EEK (Export Encryption Key) — or REK,
-  /// when needed — from a human-memorized passphrase/recovery code
-  /// via Argon2id. Unlike [wrapVault]/[unwrapVault] (PBKDF2, used only by the
-  /// unrelated single-key `Vault.exportKeyPackage` feature), this is the
-  /// spec-mandated KDF for whole-vault offline export/import —
-  /// backed by `package:cryptography`'s `Argon2id`, wired in
-  /// `DartCryptoProvider` the same way `deriveSecret`/`hkdfSha256` were
-  /// added for device pairing.
+  /// Argon2id KDF for human-memorized secrets (backup passwords, recovery
+  /// codes). Backed by `package:cryptography`'s `Argon2id` in
+  /// [DartCryptoProvider].
   Future<Uint8List> deriveArgon2id(
     List<int> passphrase,
     List<int> salt, {
@@ -367,13 +340,6 @@ abstract class CryptoProvider {
     );
   }
 
-  Future<Uint8List> unwrapVault(
-    List<int> ciphertext,
-    String passphrase,
-    List<int> salt,
-    List<int> iv,
-    int iterations,
-  );
 }
 
 /// Handle for an in-progress CPace initiator session.

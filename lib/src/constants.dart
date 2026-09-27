@@ -231,35 +231,16 @@ abstract final class MskStatus {
 }
 
 const int vaultFormatVersion = 1;
-const String vaultKdf = 'pbkdf2-sha256';
 const String vaultAead = 'aes-256-gcm';
-const int vaultPbkdf2Iterations = 210000;
-const int vaultSaltBytes = 16;
-const int vaultIvBytes = 12;
-const int vaultPepperBytes = 32;
 
-/// SComm: EEK (Export Encryption Key, and REK when that
-/// gets there) must be derived via Argon2id — unlike [vaultKdf] (PBKDF2),
-/// which is only used by the unrelated, pre-existing single-key
-/// `Vault.exportKeyPackage`/`importKeyPackage` feature. Parameters follow
-/// OWASP's Argon2id minimum recommendation (>=19 MiB memory, >=2 iterations,
-/// parallelism 1) for a device-class (not server-class) target. `memory` is
-/// in KiB, matching `package:cryptography`'s `Argon2id.memory` unit.
+/// Argon2id parameters (OWASP device-class minimum: >=19 MiB, >=2 iterations,
+/// parallelism 1). `memory` is in KiB, matching `package:cryptography`.
 const String eekKdf = 'argon2id';
 const int argon2idDefaultMemoryKib = 19456; // ~19 MiB
 const int argon2idDefaultIterations = 3;
 const int argon2idDefaultParallelism = 1;
 const int eekSaltBytes = 16;
 
-/// SComm: the offline vault export/import file format.
-/// [vaultExportKind] is deliberately distinct from `package:ckvf`'s own
-/// `format` field value (that package is a separate, pre-existing,
-/// unrelated container format also used by this app — see
-/// `key_manager_controller.dart`'s `exportLocalVault`/`importLocalVault` —
-/// this name exists so the two are never confused if a user has both kinds
-/// of file).
-const String vaultExportKind = 'scomm-vault-export';
-const int vaultExportFormatVersion = 1;
 const int deviceAuthorizationVersion = 1;
 const int enrollmentQrVersion = 1;
 const int enrollmentHandshakeVersion = 1;

@@ -3,6 +3,8 @@
 /// slots live in `package:ckvf`.
 library;
 
+export 'package:ckvf/ckvf.dart' show PepperKey, PepperOprf;
+
 export 'src/authorization.dart';
 export 'src/errors.dart';
 export 'src/host_pepper_oprf.dart';
