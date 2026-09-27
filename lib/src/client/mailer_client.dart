@@ -71,11 +71,19 @@ String mailerMskJkt(List<int> mskPublicKey) {
 }
 
 class MailerOtpGrant {
-  const MailerOtpGrant({this.identityId, required this.otpGrant});
+  const MailerOtpGrant({
+    this.identityId,
+    required this.otpGrant,
+    this.vaultGrant,
+  });
 
   /// Present for vault-consumed purposes. Absent for directory enroll.
   final String? identityId;
   final String otpGrant;
+
+  /// `replace_msk` only: signed vault grant for the rebind after the
+  /// directory arms the new MSK. Null when the vault identity was unavailable.
+  final String? vaultGrant;
 
   String get requireIdentityId {
     final id = identityId;
@@ -107,12 +115,17 @@ class MailerClient {
 
   /// Always treats a uniform success as "a code was sent if this mailbox
   /// can be used." Does not distinguish unknown vs enrolled.
+  ///
+  /// [mskPublicKey] is required for `enroll` and `replace_msk`: the grant
+  /// names that key (`msk_jkt`) and can arm no other.
   Future<void> requestOtp({
     required String email,
     required String purpose,
+    List<int>? mskPublicKey,
   }) async {
     _requireBaseUrl();
     final canonical = requireCanonicalEmail(normalizeEmail(email));
+    _requireArmingKey(purpose, mskPublicKey);
     await pubkeyRequest(
       dio,
       joinUrl(baseUrl, '/v1/otp/request'),
@@ -120,8 +133,20 @@ class MailerClient {
       body: {
         'email': canonical,
         'purpose': purpose,
+        if (mskPublicKey != null) 'msk_jkt': mailerMskJkt(mskPublicKey),
       },
     );
+  }
+
+  static void _requireArmingKey(String purpose, List<int>? mskPublicKey) {
+    final arming = purpose == MailerOtpPurpose.enroll ||
+        purpose == MailerOtpPurpose.replaceMsk;
+    if (arming && (mskPublicKey == null || mskPublicKey.length != 32)) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'mskPublicKey is required for $purpose',
+      );
+    }
   }
 
   Future<MailerOtpGrant> verifyOtp({
@@ -205,7 +230,8 @@ class MailerClient {
     );
     _idTokenConfig = config;
     _idTokenConfigUntil = DateTime.now().add(
-      Duration(seconds: _maxAgeSeconds(response.headers.value('cache-control'))),
+      Duration(
+          seconds: _maxAgeSeconds(response.headers.value('cache-control'))),
     );
     return config;
   }
@@ -220,6 +246,7 @@ class MailerClient {
   }) async {
     _requireBaseUrl();
     final canonical = requireCanonicalEmail(normalizeEmail(email));
+    _requireArmingKey(purpose, mskPublicKey);
     final body = <String, dynamic>{
       'email': canonical,
       'provider': provider,
@@ -328,9 +355,12 @@ class MailerClient {
         'Mailer verify must not return a mailbox address',
       );
     }
+    final vaultGrant = result['vault_grant'];
     return MailerOtpGrant(
       identityId: identityId is String ? identityId : null,
       otpGrant: otpGrant,
+      vaultGrant:
+          vaultGrant is String && vaultGrant.isNotEmpty ? vaultGrant : null,
     );
   }
 

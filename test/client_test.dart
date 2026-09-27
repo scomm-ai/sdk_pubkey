@@ -199,7 +199,7 @@ void main() {
           writeBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
-      client.bindIdentity();
+        client.bindIdentity();
 
         final result = await client.setKeys(
           email: 'alice@example.com',
@@ -235,7 +235,7 @@ void main() {
           writeBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
-      client.bindIdentity();
+        client.bindIdentity();
 
         try {
           await client.setKeys(
@@ -309,7 +309,7 @@ void main() {
           readBaseUrl: 'https://api.pubkey.test',
           dio: dio,
         );
-      client.bindIdentity();
+        client.bindIdentity();
 
         final result = await client.uploadVault(
           email: 'alice@example.com',
@@ -360,14 +360,14 @@ void main() {
       }
     });
 
-    test('enrollMsk posts email and MSK public key', () async {
+    test('arms the MSK in one call with grant, key, and proof', () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
-      late RequestOptions seen;
+      final seen = <RequestOptions>[];
       final dio = Dio();
       dio.httpClientAdapter = _ScriptedAdapter((options) async {
-        seen = options;
-        return _jsonOk({'status': 'pending'});
+        seen.add(options);
+        return _jsonOk({'status': 'armed'});
       });
       final client = PubkeyClient(
         crypto: crypto,
@@ -376,17 +376,70 @@ void main() {
         dio: dio,
       );
       client.bindIdentity();
+      // ignore: deprecated_member_use_from_same_package
       await client.enrollMskForIdentity(
         identityId: 'ab' * 32,
         vaultId: 'cd' * 32,
         mskPublicKey: msk.publicKey!,
       );
-      expect(seen.uri.toString(), 'https://api.pubkey.test/v1/msk/enroll');
-      expect(seen.method, 'POST');
-      expect(seen.data.containsKey('email'), isFalse);
-      expect(seen.data['identity_id'], 'ab' * 32);
-      expect(seen.data['vault_id'], 'cd' * 32);
-      expect(seen.data['msk']['algorithm'], 'ed25519');
+      expect(seen, isEmpty);
+      await client.verifyEnrollForIdentity(
+        identityId: 'ab' * 32,
+        vaultId: 'cd' * 32,
+        otpGrant: 'grant',
+        mskKey: msk,
+      );
+      final arm = seen.single;
+      expect(arm.uri.toString(), 'https://api.pubkey.test/v1/msk/arm');
+      expect(arm.method, 'POST');
+      expect(arm.data.containsKey('email'), isFalse);
+      expect(arm.data['identity_id'], 'ab' * 32);
+      expect(arm.data['otp_grant'], 'grant');
+      expect(arm.data['msk']['algorithm'], 'ed25519');
+      expect(
+        arm.data['msk']['public_key'],
+        base64Url.encode(msk.publicKey!).replaceAll('=', ''),
+      );
+      expect(arm.data['msk_proof'], isA<Map>());
+    });
+
+    test('an old directory without /v1/msk/arm fails with an upgrade code',
+        () async {
+      final crypto = DartCryptoProvider();
+      final msk = await crypto.generateSigningKey('ed25519');
+      final dio = Dio();
+      dio.httpClientAdapter = _ScriptedAdapter((options) async {
+        return ResponseBody.fromString(
+          jsonEncode({
+            'error': {'code': 'not_found', 'message': 'Not found'},
+          }),
+          404,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      });
+      final client = PubkeyClient(
+        crypto: crypto,
+        readBaseUrl: 'https://api.pubkey.test',
+        writeBaseUrl: 'https://api.pubkey.test',
+        dio: dio,
+      );
+      client.bindIdentity();
+      await expectLater(
+        client.verifyReplaceForIdentity(
+          identityId: 'ab' * 32,
+          otpGrant: 'grant',
+          mskKey: msk,
+        ),
+        throwsA(
+          isA<PubkeyException>().having(
+            (e) => e.code,
+            'code',
+            ErrorCodes.directoryUpgradeRequired,
+          ),
+        ),
+      );
     });
 
     test('uploadVault signs generation 1 for genesis and persists locally',
@@ -438,12 +491,14 @@ void main() {
       expect(sentPayload!['previous_generation_hash'], isNull);
       expect(sentPayload!['uploading_device'], 'device-1');
 
-      final signature = decodeBase64Url(sentPayload!['msk_signature'] as String);
+      final signature =
+          decodeBase64Url(sentPayload!['msk_signature'] as String);
       final verifyBytes = canonicalVaultRecordBytes(
         protocolVersion: protocolVersion,
         identityId: 'ab' * 32,
         generation: 1,
-        ciphertextHash: decodeBase64Url(sentPayload!['ciphertext_hash'] as String),
+        ciphertextHash:
+            decodeBase64Url(sentPayload!['ciphertext_hash'] as String),
         previousGenerationHash: null,
         timestamp: sentPayload!['timestamp'] as int,
         nonce: decodeBase64Url(sentPayload!['nonce'] as String),
@@ -454,7 +509,8 @@ void main() {
       );
     });
 
-    test('uploadVault increments generation and chains from lastCiphertextHash on a second upload',
+    test(
+        'uploadVault increments generation and chains from lastCiphertextHash on a second upload',
         () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
@@ -497,7 +553,8 @@ void main() {
       // match the outer claimed/signed generation exactly — not the old
       // pre-upload value. A regression here would silently desynchronize
       // what's signed from what's actually inside the ciphertext.
-      final uploadedPlaintextBytes = await KeyHierarchy.decryptVaultCiphertextWithVek(
+      final uploadedPlaintextBytes =
+          await KeyHierarchy.decryptVaultCiphertextWithVek(
         crypto,
         vek,
         WrappedKey(
@@ -510,7 +567,8 @@ void main() {
       expect(uploadedPlaintext['generation'], 4);
     });
 
-    test('downloadCurrentVault verifies signature, checks hash chain, and applies',
+    test(
+        'downloadCurrentVault verifies signature, checks hash chain, and applies',
         () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
@@ -528,7 +586,8 @@ void main() {
       });
       final vek = KeyHierarchy.generateVek(crypto);
       final exported = await source.exportVault(vek);
-      final iv = decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
+      final iv =
+          decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
       final ciphertext = decodeBase64Url(exported['ciphertext'] as String);
       final ciphertextHash = sha256Bytes(ciphertext);
       const timestamp = 1780000000000;
@@ -582,7 +641,8 @@ void main() {
       expect(dest.lastCiphertextHash, equals(ciphertextHash));
     });
 
-    test('downloadCurrentVault rejects a ciphertext that does not match its claimed hash',
+    test(
+        'downloadCurrentVault rejects a ciphertext that does not match its claimed hash',
         () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
@@ -712,7 +772,8 @@ void main() {
       });
       final vek = KeyHierarchy.generateVek(crypto);
       final exported = await source.exportVault(vek);
-      final iv = decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
+      final iv =
+          decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
       final ciphertext = decodeBase64Url(exported['ciphertext'] as String);
       final ciphertextHash = sha256Bytes(ciphertext);
       final unrelatedPreviousHash = Uint8List.fromList(List.filled(32, 3));
@@ -930,8 +991,7 @@ void main() {
 
     test(
         'downloadVaultGeneration decrypts an old generation with the old VEK '
-        'and verifies against any of the returned msk_public_keys',
-        () async {
+        'and verifies against any of the returned msk_public_keys', () async {
       final crypto = DartCryptoProvider();
       final oldMsk = await crypto.generateSigningKey('ed25519');
       final currentMsk = await crypto.generateSigningKey('ed25519');
@@ -948,7 +1008,8 @@ void main() {
       });
       final oldVek = KeyHierarchy.generateVek(crypto);
       final exported = await source.exportVault(oldVek);
-      final iv = decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
+      final iv =
+          decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
       final ciphertext = decodeBase64Url(exported['ciphertext'] as String);
       final ciphertextHash = sha256Bytes(ciphertext);
       const timestamp = 1700000000000;
@@ -1014,7 +1075,8 @@ void main() {
       expect(entries!.single.fingerprint, 'old-key-1');
     });
 
-    test('downloadVaultGeneration rejects a signature that verifies against none of the returned keys',
+    test(
+        'downloadVaultGeneration rejects a signature that verifies against none of the returned keys',
         () async {
       final crypto = DartCryptoProvider();
       final oldMsk = await crypto.generateSigningKey('ed25519');
@@ -1025,7 +1087,8 @@ void main() {
       await source.createVault(principal);
       final oldVek = KeyHierarchy.generateVek(crypto);
       final exported = await source.exportVault(oldVek);
-      final iv = decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
+      final iv =
+          decodeBase64Url((exported['encryption'] as Map)['iv'] as String);
       final ciphertext = decodeBase64Url(exported['ciphertext'] as String);
       final ciphertextHash = sha256Bytes(ciphertext);
       const timestamp = 1700000000000;
@@ -1080,7 +1143,8 @@ void main() {
       );
     });
 
-    test('downloadVaultGeneration returns null when that generation never existed',
+    test(
+        'downloadVaultGeneration returns null when that generation never existed',
         () async {
       final crypto = DartCryptoProvider();
       final dio = Dio();
@@ -1104,7 +1168,8 @@ void main() {
       expect(entries, isNull);
     });
 
-    test('uploadVault includes mutation_kind and target_device_id when declared',
+    test(
+        'uploadVault includes mutation_kind and target_device_id when declared',
         () async {
       final crypto = DartCryptoProvider();
       final msk = await crypto.generateSigningKey('ed25519');
@@ -1227,7 +1292,8 @@ void main() {
       expect(mutations.single.state, 'pending');
     });
 
-    test('fetchPendingHighRiskMutations returns an empty list when nothing is pending',
+    test(
+        'fetchPendingHighRiskMutations returns an empty list when nothing is pending',
         () async {
       final crypto = DartCryptoProvider();
       final dio = Dio();
@@ -1319,7 +1385,8 @@ void main() {
       expect(info.ciphertextHash, equals(ciphertextHash));
     });
 
-    test('fetchCurrentVaultGenerationInfo returns null when nothing has been '
+    test(
+        'fetchCurrentVaultGenerationInfo returns null when nothing has been '
         'uploaded yet', () async {
       final crypto = DartCryptoProvider();
       final dio = Dio();

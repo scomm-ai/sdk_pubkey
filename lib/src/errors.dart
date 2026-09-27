@@ -85,6 +85,12 @@ abstract final class ErrorCodes {
   static const requestTimeout = 'request_timeout';
 
   static const otpGrantInvalid = 'otp_grant_invalid';
+
+  /// The server has no pending MSK state; arm with grant + MSK + proof.
+  static const singleCallArmRequired = 'single_call_arm_required';
+
+  /// The directory host predates `/v1/msk/arm`.
+  static const directoryUpgradeRequired = 'directory_upgrade_required';
   static const pairingReadTokenInvalid = 'pairing_read_token_invalid';
   static const identityRebindRequired = 'identity_rebind_required';
   static const idTokenNotSupported = 'idtoken_not_supported';
@@ -200,9 +206,7 @@ class PubkeyException implements Exception {
         );
       }
       return PubkeyException(
-        body['error']?.toString() ??
-            body['code']?.toString() ??
-            'server_error',
+        body['error']?.toString() ?? body['code']?.toString() ?? 'server_error',
         body['message']?.toString() ?? 'Pubkey request failed ($status)',
         status: status,
         serverTime: body['server_time'],

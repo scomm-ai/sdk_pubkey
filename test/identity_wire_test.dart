@@ -66,6 +66,7 @@ void main() {
     await runtime.mailer.requestOtp(
       email: 'alice@example.com',
       purpose: MailerOtpPurpose.enroll,
+      mskPublicKey: Uint8List(32),
     );
     final grant = await runtime.mailer.verifyOtp(
       email: 'Alice@Example.com',
@@ -74,6 +75,7 @@ void main() {
     );
     await runtime.store.setIdentityId(grant.requireIdentityId);
     await runtime.store.setVaultId('cd' * 32);
+    // ignore: deprecated_member_use_from_same_package
     await runtime.client.enrollMskForIdentity(
       identityId: grant.requireIdentityId,
       vaultId: 'cd' * 32,
@@ -121,7 +123,7 @@ void main() {
     final dio = Dio();
     dio.httpClientAdapter = _Capture((options) async {
       seen.add(options.uri);
-      if (options.uri.path.endsWith('/v1/msk/enroll/verify')) {
+      if (options.uri.path.endsWith('/v1/msk/arm')) {
         return _json({'status': 'armed'});
       }
       return _json(
@@ -146,13 +148,14 @@ void main() {
     );
     expect(seen, hasLength(1));
     expect(seen.single.host, 'pubkey.test');
-    expect(seen.single.path, '/v1/msk/enroll/verify');
+    expect(seen.single.path, '/v1/msk/arm');
   });
 
   test('vault reads are authorized and not keyed by email hash', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();
-    const vaultId = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
+    const vaultId =
+        'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
     dio.httpClientAdapter = _Capture((options) async {
       seen.add(options);
       final path = options.uri.path;
@@ -182,13 +185,15 @@ void main() {
     runtime.client.deviceSigningKey = await runtime.crypto.generateMSK();
 
     await runtime.client.fetchArmedMskPublicKey(email: 'alice@example.com');
-    await runtime.client.fetchPendingHighRiskMutations(email: 'alice@example.com');
+    await runtime.client
+        .fetchPendingHighRiskMutations(email: 'alice@example.com');
     await runtime.client.downloadVaultGeneration(
       email: 'alice@example.com',
       generation: 2,
       vek: Uint8List(32),
     );
-    await runtime.client.fetchCurrentVaultGenerationInfo(email: 'alice@example.com');
+    await runtime.client
+        .fetchCurrentVaultGenerationInfo(email: 'alice@example.com');
 
     expect(seen, isNotEmpty);
     for (final request in seen) {

@@ -6,6 +6,18 @@
   expiry, MSK fingerprint) without verifying it. Directory grants are opaque
   and return null. Shared vectors live in
   `conformance/fixtures/grant-vectors.json`.
+- MSK arming is one call. `verifyEnrollForIdentity` posts to `/v1/msk/arm` and
+  `verifyReplaceForIdentity` to `/v1/msk/replace/arm`, each with the grant,
+  the MSK public key, and the MSK proof. `enrollMskForIdentity` and
+  `replaceMskForIdentity` are deprecated and no longer call the server.
+- `MailerClient.requestOtp` and `createIdTokenChallenge` require
+  `mskPublicKey` for `enroll` and `replace_msk` (sent as `msk_jkt`).
+- `MailerOtpGrant.vaultGrant` carries the signed vault grant returned with
+  `replace_msk`.
+- A directory without the single-call routes fails with
+  `directory_upgrade_required`.
+- Fix: the first native base64/JCS call in a process no longer throws
+  `LateInitializationError`.
 
 ## 1.3.0
 

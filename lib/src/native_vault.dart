@@ -41,15 +41,22 @@ class ScommVault {
     _lib = lib;
   }
 
-  static String jcs(String json) => utf8.decode(_call(_jcs, utf8.encode(json)));
+  static String jcs(String json) =>
+      utf8.decode(_call(() => _jcs, utf8.encode(json)));
 
-  static String b64Encode(List<int> bytes) => utf8.decode(_call(_b64Encode, bytes));
+  static String b64Encode(List<int> bytes) =>
+      utf8.decode(_call(() => _b64Encode, bytes));
 
-  static Uint8List b64Decode(String value) => _call(_b64Decode, utf8.encode(value));
+  static Uint8List b64Decode(String value) =>
+      _call(() => _b64Decode, utf8.encode(value));
 
-  static Uint8List _call(_Op op, List<int> input) {
+  /// [op] is read after [ensure] so the late fields are initialized.
+  static Uint8List _call(_Op Function() resolve, List<int> input) {
     ensure();
-    final inPtr = input.isEmpty ? Pointer<Uint8>.fromAddress(0) : malloc<Uint8>(input.length);
+    final op = resolve();
+    final inPtr = input.isEmpty
+        ? Pointer<Uint8>.fromAddress(0)
+        : malloc<Uint8>(input.length);
     final outPtr = malloc<Pointer<Uint8>>();
     final outLen = malloc<IntPtr>();
     try {
@@ -82,7 +89,8 @@ class ScommVault {
     if (override != null && override.isNotEmpty) candidates.add(override);
     var dir = Directory.current;
     for (var i = 0; i < 8; i++) {
-      candidates.add('${dir.path}${Platform.pathSeparator}native${Platform.pathSeparator}$name');
+      candidates.add(
+          '${dir.path}${Platform.pathSeparator}native${Platform.pathSeparator}$name');
       final parent = dir.parent;
       if (parent.path == dir.path) break;
       dir = parent;

@@ -46,12 +46,50 @@ void main() {
     final second = await client.fetchIdTokenConfig();
     expect(hits, 1);
     expect(first.enabled, isTrue);
-    expect(second.supports(MailerIdTokenProvider.google, MailerOtpPurpose.enroll),
+    expect(
+        second.supports(MailerIdTokenProvider.google, MailerOtpPurpose.enroll),
         isTrue);
     expect(
       second.supports(MailerIdTokenProvider.microsoft, MailerOtpPurpose.enroll),
       isFalse,
     );
+  });
+
+  test('OTP for an arming purpose names the MSK and returns vault_grant',
+      () async {
+    final publicKey = Uint8List(32)..[0] = 9;
+    Map<String, dynamic>? requestBody;
+    final client = clientWith((options) {
+      if (options.path.endsWith('/v1/otp/request')) {
+        requestBody = Map<String, dynamic>.from(options.data as Map);
+        return {'accepted': true};
+      }
+      return {
+        'sha256': 'ef' * 32,
+        'otp_grant': 'directory-grant',
+        'vault_grant': 'vault-grant',
+      };
+    });
+    await expectLater(
+      client.requestOtp(
+        email: 'alice@example.com',
+        purpose: MailerOtpPurpose.replaceMsk,
+      ),
+      throwsA(isA<PubkeyException>()),
+    );
+    await client.requestOtp(
+      email: 'alice@example.com',
+      purpose: MailerOtpPurpose.replaceMsk,
+      mskPublicKey: publicKey,
+    );
+    expect(requestBody?['msk_jkt'], mailerMskJkt(publicKey));
+    final grant = await client.verifyOtp(
+      email: 'alice@example.com',
+      otp: '0123456789A',
+      purpose: MailerOtpPurpose.replaceMsk,
+    );
+    expect(grant.otpGrant, 'directory-grant');
+    expect(grant.vaultGrant, 'vault-grant');
   });
 
   test('challenge sends msk_jkt and verify parses the grant', () async {
@@ -132,7 +170,8 @@ void main() {
                 statusCode: 403,
                 data: {
                   'code': ErrorCodes.idTokenEmailMismatch,
-                  'message': 'Identity token does not match the requested mailbox',
+                  'message':
+                      'Identity token does not match the requested mailbox',
                 },
               ),
             ),

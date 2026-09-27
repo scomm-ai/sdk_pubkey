@@ -1673,8 +1673,7 @@ class PubkeyClient {
         : (capabilities ?? await discoveryCapabilities(capabilityPolicy));
     final params = <String, String>{
       'sha256': identityId,
-      if (!exact || resolved.isNotEmpty)
-        'capabilities': jsonEncode(resolved),
+      if (!exact || resolved.isNotEmpty) 'capabilities': jsonEncode(resolved),
       if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,
       if (keyId != null && keyId.trim().isNotEmpty) 'key_id': keyId.trim(),
     };
@@ -1689,46 +1688,71 @@ class PubkeyClient {
     return pubkeyRequest(dio, url);
   }
 
+  /// The directory no longer stores a pending MSK. This only validates
+  /// input; the key is sent with [verifyEnrollForIdentity]. Request the OTP
+  /// with the same key so the grant names it (`msk_jkt`).
+  @Deprecated('Pass mskPublicKey to MailerClient.requestOtp and verify instead')
   Future<dynamic> enrollMskForIdentity({
     String? email,
     String? identityId,
     String? vaultId,
     required List<int> mskPublicKey,
-  }) {
+  }) async {
     final directory = email != null && email.trim().isNotEmpty;
     if (!directory) {
       requireIdentityId(identityId ?? '');
       requireIdentityId(vaultId ?? '');
     }
-    final url = joinUrl(writeBaseUrl, '/v1/msk/enroll');
-    final body = directory
-        ? {
-            'sha256': emailSha256Hex(email),
-            'msk': {
-              'algorithm': mskAlgorithm,
-              'public_key': encodeBase64Url(mskPublicKey),
-            },
-          }
-        : {
-            'identity_id': identityId,
-            'vault_id': vaultId,
-            'msk': {
-              'algorithm': mskAlgorithm,
-              'public_key': encodeBase64Url(mskPublicKey),
-            },
-          };
-    assertPubkeyWireHasNoMailbox(url: url, body: body);
-    return pubkeyRequest(dio, url, method: 'POST', body: body);
+    _requireMskPublicKey(mskPublicKey);
+    return const {'status': 'deferred'};
   }
 
+  static Uint8List _requireMskPublicKey(List<int>? key) {
+    if (key == null || key.length != 32) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'A 32-byte ed25519 MSK public key is required to arm',
+      );
+    }
+    return Uint8List.fromList(key);
+  }
+
+  /// Posts a single-call arm. A directory without `/v1/msk/arm` answers 404
+  /// for the route; surface that as an upgrade error, not an unknown mailbox.
+  Future<dynamic> _postArm(String url, Map<String, dynamic> body) async {
+    assertPubkeyWireHasNoMailbox(url: url, body: body);
+    try {
+      return await pubkeyRequest(
+        dio,
+        url,
+        method: 'POST',
+        body: body,
+        reconcileReplayAfterConnectionFailure: true,
+      );
+    } on PubkeyException catch (error) {
+      if (error.status == 404 && error.code != ErrorCodes.unknownPrincipal) {
+        throw PubkeyException(
+          ErrorCodes.directoryUpgradeRequired,
+          'The directory host does not support single-call MSK arming',
+          status: 404,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// `POST /v1/msk/arm`: grant, MSK, and a proof by that MSK in one call.
+  /// [mskPublicKey] defaults to `mskKey.publicKey`.
   Future<dynamic> verifyEnrollForIdentity({
     String? email,
     String? identityId,
     String? vaultId,
     required String otpGrant,
     required KeyRef mskKey,
+    List<int>? mskPublicKey,
     Map<String, dynamic>? device,
   }) async {
+    final publicKey = _requireMskPublicKey(mskPublicKey ?? mskKey.publicKey);
     final directorySha =
         email != null && email.trim().isNotEmpty ? emailSha256Hex(email) : null;
     if (directorySha == null) {
@@ -1756,58 +1780,44 @@ class PubkeyClient {
         version: protocolVersion,
       );
     }
-    final url = joinUrl(writeBaseUrl, '/v1/msk/enroll/verify');
-    final body = directorySha == null
-        ? {
-            'identity_id': identityId,
-            'vault_id': vaultId,
-            'otp_grant': otpGrant,
-            'msk_proof': proof,
-            if (firstDevice != null) 'first_device': firstDevice,
-          }
-        : {
-            'sha256': directorySha,
-            'otp_grant': otpGrant,
-            'msk_proof': proof,
-          };
-    assertPubkeyWireHasNoMailbox(url: url, body: body);
+    final msk = {
+      'algorithm': mskAlgorithm,
+      'public_key': encodeBase64Url(publicKey),
+    };
     // Discovery arms the MSK. The vault host only evaluates the mailbox
-    // identity; it does not accept a principal registration. Posting there
-    // failed the OTP page after enroll/verify had already returned 200, so
-    // the device never stored the key or published a public key.
-    return pubkeyRequest(
-      dio,
-      url,
-      method: 'POST',
-      body: body,
-      reconcileReplayAfterConnectionFailure: true,
-    );
+    // identity; it does not accept a principal registration.
+    return _postArm(joinUrl(writeBaseUrl, '/v1/msk/arm'), {
+      'identity_id': directorySha ?? identityId,
+      if (directorySha == null) 'vault_id': vaultId,
+      'otp_grant': otpGrant,
+      'msk': msk,
+      'msk_proof': proof,
+      if (firstDevice != null) 'first_device': firstDevice,
+    });
   }
 
+  /// See [enrollMskForIdentity]: no pending state, input check only.
+  @Deprecated('Pass mskPublicKey to MailerClient.requestOtp and verify instead')
   Future<dynamic> replaceMskForIdentity({
     required String identityId,
     required List<int> mskPublicKey,
-  }) {
+  }) async {
     requireIdentityId(identityId);
-    final url = joinUrl(writeBaseUrl, '/v1/msk/replace');
-    final body = {
-      'identity_id': identityId,
-      'msk': {
-        'algorithm': mskAlgorithm,
-        'public_key': encodeBase64Url(mskPublicKey),
-      },
-    };
-    assertPubkeyWireHasNoMailbox(url: url, body: body);
-    return pubkeyRequest(dio, url, method: 'POST', body: body);
+    _requireMskPublicKey(mskPublicKey);
+    return const {'status': 'deferred'};
   }
 
+  /// `POST /v1/msk/replace/arm`. [mskPublicKey] defaults to
+  /// `mskKey.publicKey`.
   Future<dynamic> verifyReplaceForIdentity({
     required String identityId,
     required String otpGrant,
     required KeyRef mskKey,
+    List<int>? mskPublicKey,
     Map<String, dynamic>? device,
   }) async {
     requireIdentityId(identityId);
+    final publicKey = _requireMskPublicKey(mskPublicKey ?? mskKey.publicKey);
     final proof = await _signOperation(
       operation: Operations.armReplacementMsk,
       principal: identityId,
@@ -1825,21 +1835,16 @@ class PubkeyClient {
         version: protocolVersion,
       );
     }
-    final url = joinUrl(writeBaseUrl, '/v1/msk/replace/verify');
-    final body = {
+    return _postArm(joinUrl(writeBaseUrl, '/v1/msk/replace/arm'), {
       'identity_id': identityId,
       'otp_grant': otpGrant,
+      'msk': {
+        'algorithm': mskAlgorithm,
+        'public_key': encodeBase64Url(publicKey),
+      },
       'msk_proof': proof,
       if (recoveryDevice != null) 'recovery_device': recoveryDevice,
-    };
-    assertPubkeyWireHasNoMailbox(url: url, body: body);
-    return pubkeyRequest(
-      dio,
-      url,
-      method: 'POST',
-      body: body,
-      reconcileReplayAfterConnectionFailure: true,
-    );
+    });
   }
 
   Future<Map<String, dynamic>> createPairingSessionForIdentity({
