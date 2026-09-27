@@ -1502,17 +1502,35 @@ class PubkeyRuntime {
     required String deviceName,
   }) async {
     final canonical = requireCanonicalEmail(normalizeEmail(email));
-    final RecoveryEnvelopeBundle bundle;
     final grant = await mailer.verifyOtp(
       email: canonical,
       otp: otp,
       purpose: MailerOtpPurpose.recoveryEnvelope,
     );
+    return recoverWithGrant(
+      email: canonical,
+      grant: grant,
+      recoveryCode: recoveryCode,
+      deviceName: deviceName,
+    );
+  }
+
+  /// Same recovery as [recoverWithCode], starting from a mailer grant.
+  /// The grant may come from OTP verify or ID-token verify.
+  Future<RecoveryWithCodeResult> recoverWithGrant({
+    required String email,
+    required MailerOtpGrant grant,
+    required String recoveryCode,
+    required String deviceName,
+  }) async {
+    final canonical = requireCanonicalEmail(normalizeEmail(email));
+    final RecoveryEnvelopeBundle bundle;
     await store.setIdentityId(grant.requireIdentityId);
     bundle = await client.fetchRecoveryEnvelopeWithGrant(
       identityId: grant.requireIdentityId,
       otpGrant: grant.otpGrant,
     );
+    email = canonical;
     final vaultId = bundle.vaultId;
     if (vaultId == null || vaultId.isEmpty) {
       throw PubkeyException(

@@ -1,0 +1,67 @@
+{
+  "host": "mailer",
+  "seesPlaintextEmail": true,
+  "brand": "Scomm.AI",
+  "grantField": "otp_grant",
+  "grantClaimsExclude": ["email", "mailbox", "address"],
+  "grantClaims": {
+    "amr": ["id_token"],
+    "idp": "google|microsoft",
+    "msk_jkt": "base64url(sha256(msk public key)); required for enroll and replace_msk"
+  },
+  "endpoints": {
+    "GET /v1/idtoken/config": {
+      "cache": "Cache-Control: max-age=300",
+      "response": {
+        "enabled": true,
+        "providers": {
+          "google": { "purposes": ["enroll"] },
+          "microsoft": { "purposes": ["enroll"] }
+        },
+        "challenge_ttl_seconds": 300
+      }
+    },
+    "POST /v1/idtoken/challenge": {
+      "body": {
+        "email": "<canonical mailbox>",
+        "provider": "google|microsoft",
+        "purpose": "enroll|replace_msk|recovery_envelope|recovery_generation|vault_backup",
+        "msk_jkt": "<required for enroll and replace_msk>"
+      },
+      "response": {
+        "challenge_id": "<base64url>",
+        "nonce": "<base64url>",
+        "expires_in": 300
+      },
+      "uniform": "Same success whether or not an identity exists"
+    },
+    "POST /v1/idtoken/verify": {
+      "body": {
+        "challenge_id": "<from challenge>",
+        "provider": "google|microsoft",
+        "purpose": "<same as challenge>",
+        "id_token": "<compact RS256 JWS>",
+        "graph_access_token": "<optional; Microsoft work/school fallback>"
+      },
+      "success": {
+        "identity_id": "<64 lowercase hex>",
+        "otp_grant": "<same grant format as OTP verify>"
+      }
+    }
+  },
+  "errors": [
+    "idtoken_not_supported",
+    "idtoken_challenge_invalid",
+    "idtoken_invalid",
+    "idtoken_replayed",
+    "idtoken_email_unverified",
+    "idtoken_email_mismatch",
+    "idtoken_subject_mismatch"
+  ],
+  "trust": {
+    "google": "email_verified and (gmail.com|googlemail.com or hd equal to the email domain)",
+    "microsoft_consumer": "tid 9188040d-6c67-4c5b-b112-36a304b66dad; email, else preferred_username when it is an email",
+    "microsoft_org": "xms_edov and email, or verified_primary_email / verified_secondary_email; else Graph /me mail when the fallback is on",
+    "subject": "google: sha256(google|sub); microsoft: sha256(microsoft|tid|oid) using oid, not sub"
+  }
+}

@@ -87,6 +87,13 @@ abstract final class ErrorCodes {
   static const otpGrantInvalid = 'otp_grant_invalid';
   static const pairingReadTokenInvalid = 'pairing_read_token_invalid';
   static const identityRebindRequired = 'identity_rebind_required';
+  static const idTokenNotSupported = 'idtoken_not_supported';
+  static const idTokenChallengeInvalid = 'idtoken_challenge_invalid';
+  static const idTokenInvalid = 'idtoken_invalid';
+  static const idTokenReplayed = 'idtoken_replayed';
+  static const idTokenEmailUnverified = 'idtoken_email_unverified';
+  static const idTokenEmailMismatch = 'idtoken_email_mismatch';
+  static const idTokenSubjectMismatch = 'idtoken_subject_mismatch';
 
   static const List<String> all = [
     invalidSignature,
@@ -144,6 +151,13 @@ abstract final class ErrorCodes {
     otpGrantInvalid,
     pairingReadTokenInvalid,
     identityRebindRequired,
+    idTokenNotSupported,
+    idTokenChallengeInvalid,
+    idTokenInvalid,
+    idTokenReplayed,
+    idTokenEmailUnverified,
+    idTokenEmailMismatch,
+    idTokenSubjectMismatch,
   ];
 }
 

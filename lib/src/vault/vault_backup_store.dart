@@ -126,6 +126,19 @@ class DiscoveryBackupStore implements VaultBackupStore {
       otp: otp,
       purpose: MailerOtpPurpose.vaultBackup,
     );
+    return getWithGrant(identity: identity, grant: grant);
+  }
+
+  Future<Map<String, dynamic>?> getWithGrant({
+    required String identity,
+    required MailerOtpGrant grant,
+  }) {
+    if (identity.isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'identity is required',
+      );
+    }
     return client.fetchVaultBackupWithGrant(
       identityId: grant.requireIdentityId,
       otpGrant: grant.otpGrant,

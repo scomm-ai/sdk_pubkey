@@ -153,7 +153,7 @@ class PubkeyClient {
     String? vaultBaseUrl,
     Dio? dio,
     this.sdkName = 'scomm-pubkey-dart',
-    this.sdkVersion = '1.2.0',
+    this.sdkVersion = '1.3.0',
   })  : readBaseUrl = PubkeyConfig.requireUrl(
           'PUBKEY_READ_BASE_URL',
           readBaseUrl ?? PubkeyConfig.readBaseUrl,

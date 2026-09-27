@@ -26,6 +26,9 @@
         "otp_grant": "<jws>"
       },
       "grantClaimsExclude": ["email", "mailbox", "address"],
+      "grantClaims": {
+        "amr": ["otp"]
+      },
       "failure": "otp_invalid"
     }
   }
