@@ -1,0 +1,43 @@
+{
+  "banner": "TEST KEY — NEVER USE IN PRODUCTION",
+  "profile": "profiles/pepper-oprf.md",
+  "suite": "ristretto255-SHA512",
+  "mode": "poprf",
+  "key_info": "CKVF-pepper-key-v1",
+  "info_format": "CKVF-pepper-v1 || 0x00 || vault_id || 0x00 || slot_id (ASCII)",
+  "key": {
+    "kid": "vector-pepper-1",
+    "seed": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "secret_key": "wh9c8kIKNjBvZWQtMjEzm9KcqFr9vq8pM-OLtgt4LwQ",
+    "public_key": "sOxFk51b9JKBctYPVygHsZdBAjgJWg7ExloXtt0qvEg"
+  },
+  "vault_id": "AQIDBAUGBwgJCgsMDQ4PEA",
+  "cases": [
+    {
+      "id": "password-oprf-unlock",
+      "method": "password-oprf-argon2id",
+      "slot_id": "oKGio6SlpqeoqaqrrK2urw",
+      "secret": "CKVF-TEST-PEPPER-PASSWORD",
+      "info": "Q0tWRi1wZXBwZXItdjEAQVFJREJBVUdCd2dKQ2dzTURRNFBFQQBvS0dpbzZTbHBxZW9xYXFycksydXJ3",
+      "blind": "cGwI4444sOezBg9X52bUZHCtKAswcctkDW4eix3Xqgo",
+      "blinded": "KDtm38o8MquHj4uoMbgDgatWZO6K31b2GNqGaX_E92U",
+      "tweaked_key": "cPFSzFdJ-Zlu7-jYygloLq-qU7cCYJbePEu6mXry4Dc",
+      "evaluated": "4lvQiaZZqthzmaLCrbbWhOASTy1IFLEXiXY6ACkU0Sc",
+      "proof": "Qd6y2Pa5Xh08KlpygMKKrsWs1tRU6m4ZF6BuLx8_cgxbBv4Dic4VBk7ofNUhVHodFBBLfx2vucf3qwQp53GqBg",
+      "rwd": "dhPSo7FyEwy7plQGw_iyQWDn1YFc9IGkUab1ETLeYJxxFcym3-vMvrV6S04K6FYJSG7OrzHeduz3a4jkShakgQ"
+    },
+    {
+      "id": "recovery-code-oprf-unlock",
+      "method": "recovery-code-oprf-argon2id",
+      "slot_id": "sLGys7S1tre4ubq7vL2-vw",
+      "secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "info": "Q0tWRi1wZXBwZXItdjEAQVFJREJBVUdCd2dKQ2dzTURRNFBFQQBzTEd5czdTMXRyZTR1YnE3dkwyLXZ3",
+      "blind": "ML2MNKiP0ZnaEcAFmiMPw-KCfFUwEY8RvhBaHYpIEQ4",
+      "blinded": "AGg6TKikWdOtKwL_SQff8_2_x1u5ngTB6kuGi80n0xo",
+      "tweaked_key": "kBo1tMI-kU5daYL2fz8oQyaAaoflP3VDr9UqokV47VI",
+      "evaluated": "0ONJLOEtQghwupH3A3bmwsOHNxU2TAd3Hne_rwTYJnw",
+      "proof": "jE3zbgDZpJcByl-DMwLn8s8g8KeoyAHO_aa1pqLlqAK1nFJpSV_Sv67--UkiiJn8WX_KRDtLexxYjlPmjA-0AQ",
+      "rwd": "kD68UQvk3vMFX9DVx9Xnp8F0M5PwO2TzOsVHQHJj1aBGIEYQd2jXAxMYkh_o8BA55l_JXYhOVt-YdNU__Q9csA"
+    }
+  ]
+}

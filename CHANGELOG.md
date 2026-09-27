@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- New package `packages/scomm_vault_client` (0.1.0): vault-host client
+  with identity OPRF proof verification, pepper POPRF (`HostPepperOprf` for
+  the `ckvf` slot APIs), key listing, read authorization, and grant parsing.
+  Pure Dart; checked against the ckvf `pepper-oprf` vectors.
 - `parseGrantV1` reads a `Scomm/grant/v1` vault grant (purpose, audience,
   expiry, MSK fingerprint) without verifying it. Directory grants are opaque
   and return null. Shared vectors live in

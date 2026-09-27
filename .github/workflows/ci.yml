@@ -32,6 +32,20 @@ jobs:
       - name: Test (includes discovery conformance fixtures)
         run: dart test
 
+  vault-client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/scomm_vault_client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.5.0"
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
   js-track-a:
     runs-on: ubuntu-latest
     defaults:

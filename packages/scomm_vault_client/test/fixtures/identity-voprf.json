@@ -1,0 +1,14 @@
+{
+  "banner": "TEST KEY — NEVER USE IN PRODUCTION",
+  "suite": "ristretto255-SHA512",
+  "note": "Mode 0x00 blind and evaluation; DLEQ proof under the VOPRF (0x01) context string, as the vault host returns.",
+  "secret_key": "uXGs6JIlvsNmtCOgDxhr2acZCwgI4-o24DVtQmrHeQY",
+  "public_key": "rmp0TqSnRBdUCAONKg_deutuXOBi5jNv60vrKT9H3xM",
+  "input": "alice@example.com",
+  "blind": "zzBVGmWBUFUZNBrlUWgbuHVfrXRUHZzJcBq8HMKHtQs",
+  "blinded": "ouy4QpB411UPQWaV3q6l5zQuqm8k2EvNBzmkKIPGhz4",
+  "evaluated": "GNV08ME8_UlmtAU3g_oFqNY5uQdhx0WWIoybj6FQink",
+  "proof": "JKgfmDZpqGLgAzyvFtrovTGxVdC1NanZUiQECTN3GAOoMBIPGOJyaKbSWGoxfBroCDd1Zi59rghAom1iU6DlCg",
+  "output": "G6I30lilWGj_uyo3Fz2YWxUnoh8CnFZe5uYAXqYmsvDLxw6iHZARy2J064nEg-am4ydYaI4rehurQXlBBYQw-w",
+  "identity_id": "1ba237d258a55868ffbb2a37173d985b1527a21f029c565ee6e6005ea626b2f0"
+}
