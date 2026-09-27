@@ -7,7 +7,7 @@ description = "SComm.AI vault-host client: KeyVault, pairing, identity OPRF, pep
 publish = false
 
 [lib]
-name = "scomm_vault"
+name = "scomm_vault_client"
 path = "src/lib.rs"
 
 [features]

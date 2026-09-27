@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use ckvf::{base64url_decode, ed25519_verify, validate};
+use scomm_vault::{base64url_decode, ed25519_verify, validate};
 use serde_json::{json, Value};
-use scomm_vault::{
+use scomm_vault_client::{
     vault_records_signing_text, MskSigner, PepperEvaluation, PepperKeySet, VaultAuthorization,
     VaultClientError, VaultHostApi, VaultRead,
 };
@@ -96,7 +96,7 @@ impl VaultHostApi for FakeVaultHost {
                     "generation_hash": r.generation_hash(),
                     "msk_signature": {
                         "algorithm": "ed25519",
-                        "value": ckvf::base64url_encode(&r.msk_signature),
+                        "value": scomm_vault::base64url_encode(&r.msk_signature),
                     },
                     "created_at": r.created_at,
                 }
@@ -143,7 +143,7 @@ impl VaultHostApi for FakeVaultHost {
     async fn put_record(
         &self,
         identity_id: &str,
-        container: &ckvf::VaultContainer,
+        container: &scomm_vault::VaultContainer,
         signer: &MskSigner,
         _license_device_id: Option<&str>,
     ) -> Result<Value, VaultClientError> {
@@ -207,7 +207,7 @@ impl VaultHostApi for FakeVaultHost {
                 Some(details),
             ));
         }
-        let container_json: Value = serde_json::from_str(&ckvf::serialize_container(container)?)
+        let container_json: Value = serde_json::from_str(&scomm_vault::serialize_container(container)?)
             .map_err(|e| VaultClientError::msg("bad_response", e.to_string()))?;
         inner.records.push(json!({
             "container": container_json,

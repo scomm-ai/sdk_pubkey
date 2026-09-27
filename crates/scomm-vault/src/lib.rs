@@ -43,7 +43,7 @@ pub use vault_host_client::{
 };
 
 // Re-export CKVF types apps commonly need alongside this client.
-pub use ckvf::{
+pub use scomm_vault::{
     PepperKey, PepperOprf, UnlockedVault, VaultContainer, DEVICE_WRAP_METHOD, PASSWORD_OPRF_METHOD,
     RECOVERY_CODE_OPRF_METHOD,
 };

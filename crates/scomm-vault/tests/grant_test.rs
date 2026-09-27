@@ -1,5 +1,5 @@
 use base64::Engine;
-use scomm_vault::{parse_grant_v1, GrantV1Claims};
+use scomm_vault_client::{parse_grant_v1, GrantV1Claims};
 
 fn b64url(s: &str) -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s.as_bytes())

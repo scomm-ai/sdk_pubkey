@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use ckvf::{base64url_decode, base64url_encode, validate_container_shape, DEFAULT_LIMITS, PepperKey};
+use scomm_vault::{base64url_decode, base64url_encode, validate_container_shape, DEFAULT_LIMITS, PepperKey};
 use serde_json::{json, Value};
 
 use crate::authorization::VaultAuthorization;
@@ -17,7 +17,7 @@ use crate::signing::MskSigner;
 /// A stored CKVF generation (`record` of a vault read).
 #[derive(Clone, Debug)]
 pub struct VaultRecord {
-    pub container: ckvf::VaultContainer,
+    pub container: scomm_vault::VaultContainer,
     /// Raw 64-byte Ed25519 signature over [`crate::signing::vault_records_signing_text`].
     pub msk_signature: Vec<u8>,
     pub created_at: Option<String>,
@@ -201,7 +201,7 @@ pub trait VaultHostApi: Send + Sync {
     async fn put_record(
         &self,
         identity_id: &str,
-        container: &ckvf::VaultContainer,
+        container: &scomm_vault::VaultContainer,
         signer: &MskSigner,
         license_device_id: Option<&str>,
     ) -> Result<Value, VaultClientError>;
@@ -521,7 +521,7 @@ impl VaultHostApi for VaultHostClient {
     async fn put_record(
         &self,
         identity_id: &str,
-        container: &ckvf::VaultContainer,
+        container: &scomm_vault::VaultContainer,
         signer: &MskSigner,
         license_device_id: Option<&str>,
     ) -> Result<Value, VaultClientError> {

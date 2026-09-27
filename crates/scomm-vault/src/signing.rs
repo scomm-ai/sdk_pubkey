@@ -2,7 +2,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ckvf::{base64url_encode, canonicalize, ed25519_public_from_seed, ed25519_sign, random_bytes};
+use scomm_vault::{base64url_encode, canonicalize, ed25519_public_from_seed, ed25519_sign, random_bytes};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
@@ -81,8 +81,8 @@ impl MskSigner {
         Ok(Self { seed: s })
     }
 
-    pub fn from_vault(vault: &ckvf::UnlockedVault) -> Result<Self, VaultClientError> {
-        let pk = ckvf::base64url_decode(&vault.payload.msk.current.private_key)
+    pub fn from_vault(vault: &scomm_vault::UnlockedVault) -> Result<Self, VaultClientError> {
+        let pk = scomm_vault::base64url_decode(&vault.payload.msk.current.private_key)
             .map_err(|e| VaultClientError::msg("bad_response", e.0))?;
         Self::new(&pk)
     }
@@ -129,7 +129,7 @@ impl MskSigner {
     pub fn record_signature(
         &self,
         identity_id: &str,
-        container: &ckvf::VaultContainer,
+        container: &scomm_vault::VaultContainer,
     ) -> Result<Map<String, Value>, VaultClientError> {
         let text = vault_records_signing_text(
             identity_id,

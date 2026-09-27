@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use ckvf::{
+use scomm_vault::{
     base64url_decode, base64url_encode, canonical_openpgp_public_key, commit_unlock_slots,
     create_vault, delete_private_key, ed25519_verify, generate_recovery_code, get_key,
     import_private_key, key_ids, merge_onto, open_vault as ckvf_open_vault,
@@ -237,11 +237,11 @@ impl KeyVault {
         MskSigner::new(&self.msk_seed()?)
     }
 
-    pub fn keys(&self) -> Result<&[ckvf::KeyRecord], VaultClientError> {
+    pub fn keys(&self) -> Result<&[scomm_vault::KeyRecord], VaultClientError> {
         Ok(&self.vault()?.payload.keys)
     }
 
-    pub fn key(&self, absolute_key_id: &str) -> Result<Option<&ckvf::KeyRecord>, VaultClientError> {
+    pub fn key(&self, absolute_key_id: &str) -> Result<Option<&scomm_vault::KeyRecord>, VaultClientError> {
         Ok(get_key(self.vault()?, absolute_key_id))
     }
 
@@ -928,7 +928,7 @@ pub async fn open_host_vault_with_host_pepper(
             format!("no {method} slot"),
         ));
     }
-    let secret_bytes = ckvf::pepper_secret(method, secret)?;
+    let secret_bytes = scomm_vault::pepper_secret(method, secret)?;
     let last = slots.len() - 1;
     let mut last_err = None;
     for (i, slot) in slots.iter().enumerate() {
@@ -969,7 +969,7 @@ pub async fn open_host_vault_with_host_pepper(
                 }
             }
             Err(e) if i != last => {
-                last_err = Some(ckvf::CkvfError::msg("ERR_UNLOCK", e.to_string()));
+                last_err = Some(scomm_vault::CkvfError::msg("ERR_UNLOCK", e.to_string()));
                 continue;
             }
             Err(e) => return Err(e),

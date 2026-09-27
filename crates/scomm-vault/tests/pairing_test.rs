@@ -3,9 +3,9 @@ mod common;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ckvf::base64url_encode;
+use scomm_vault::base64url_encode;
 use common::FakeVaultHost;
-use scomm_vault::{
+use scomm_vault_client::{
     approve_pairing, cpace_finish, cpace_respond, cpace_start, fetch_pairing_request,
     start_pairing, KeyVault, MemoryLocalVaultStore, PairingProtocol, PairingUri, StaticAuthorizer,
     VaultAuthorization, VaultClientError, VaultDevice, VaultHostBinding, PAIRING_TYPED_PASSWORD_LENGTH,

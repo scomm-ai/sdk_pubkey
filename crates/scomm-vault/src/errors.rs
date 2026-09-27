@@ -59,11 +59,11 @@ impl fmt::Display for VaultClientError {
 
 impl std::error::Error for VaultClientError {}
 
-impl From<ckvf::CkvfError> for VaultClientError {
-    fn from(e: ckvf::CkvfError) -> Self {
+impl From<scomm_vault::CkvfError> for VaultClientError {
+    fn from(e: scomm_vault::CkvfError) -> Self {
         match e {
-            ckvf::CkvfError::Code { code } => Self::new(code, None),
-            ckvf::CkvfError::WithMessage { code, message } => Self::new(code, Some(message)),
+            scomm_vault::CkvfError::Code { code } => Self::new(code, None),
+            scomm_vault::CkvfError::WithMessage { code, message } => Self::new(code, Some(message)),
         }
     }
 }

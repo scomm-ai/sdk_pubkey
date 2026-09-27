@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use ckvf::{
+use scomm_vault::{
     base64url_decode, base64url_encode, ed25519_verify, open_vault_with, random_bytes,
     UnlockedVault,
 };

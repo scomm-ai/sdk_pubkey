@@ -1,7 +1,7 @@
 use std::fs;
 
 use base64::Engine;
-use scomm_vault::{
+use scomm_vault_client::{
     identity_blind, identity_finalize, identity_id_from_output, oprf_public_key, pepper_info,
     poprf_blind, poprf_blind_evaluate, poprf_finalize, VaultClientError,
 };

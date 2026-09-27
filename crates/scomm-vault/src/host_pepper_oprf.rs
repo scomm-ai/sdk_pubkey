@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use ckvf::{CkvfError, PepperOprf};
+use scomm_vault::{CkvfError, PepperOprf};
 
 use crate::authorization::VaultAuthorization;
 use crate::errors::VaultClientError;

@@ -1,6 +1,6 @@
 //! Pairing mailbox protocol constants, URI, TEK, and AEAD boxes.
 
-use ckvf::{aes256gcm_decrypt, aes256gcm_encrypt, base64url_decode, base64url_encode, random_bytes};
+use scomm_vault::{aes256gcm_decrypt, aes256gcm_encrypt, base64url_decode, base64url_encode, random_bytes};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
