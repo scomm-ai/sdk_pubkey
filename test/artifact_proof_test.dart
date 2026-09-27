@@ -85,7 +85,8 @@ void main() {
         payload: {
           'algorithm': artifact['algorithm'],
           'family': artifact['family'],
-          'purpose': artifact['purpose'],
+          // Client remaps wire "signing" → Purposes.verify before PoP.
+          'purpose': Purposes.verify,
           'public_material_sha256': bytesToHex(
             sha256Bytes(decodeBase64Url(artifact['public_material'] as String)),
           ),
@@ -111,7 +112,7 @@ void main() {
         payload: {
           'algorithm': artifact['algorithm'],
           'family': artifact['family'],
-          'purpose': artifact['purpose'],
+          'purpose': Purposes.verify,
           'public_material_sha256': bytesToHex(
             sha256Bytes(decodeBase64Url(artifact['public_material'] as String)),
           ),
