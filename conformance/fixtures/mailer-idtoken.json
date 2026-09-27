@@ -10,7 +10,7 @@
     "msk_jkt": "base64url(sha256(msk public key)); required for enroll and replace_msk"
   },
   "endpoints": {
-    "GET /v1/idtoken/config": {
+    "GET /v1/challenges/config": {
       "cache": "Cache-Control: max-age=300",
       "response": {
         "enabled": true,
@@ -21,27 +21,27 @@
         "challenge_ttl_seconds": 300
       }
     },
-    "POST /v1/idtoken/challenge": {
+    "POST /v1/mailboxes/{sha256}/challenges": {
       "body": {
+        "type": "https://discovery.scomm.ai/challenges/oidc-id-token/v1",
         "email": "<canonical mailbox>",
         "provider": "google|microsoft",
-        "purpose": "enroll|replace_msk|recovery_envelope|recovery_generation|vault_backup",
+        "purpose": "https://discovery.scomm.ai/operations/msk/enroll/v1",
         "msk_jkt": "<required for enroll and replace_msk>"
       },
       "response": {
-        "challenge_id": "<base64url>",
+        "id": "<challenge id>",
         "nonce": "<base64url>",
-        "expires_in": 300
+        "expiresAt": "<RFC3339>"
       },
       "uniform": "Same success whether or not an identity exists"
     },
-    "POST /v1/idtoken/verify": {
+    "POST /v1/mailboxes/{sha256}/challenges/{id}/responses": {
       "body": {
-        "challenge_id": "<from challenge>",
-        "provider": "google|microsoft",
-        "purpose": "<same as challenge>",
-        "id_token": "<compact RS256 JWS>",
-        "graph_access_token": "<optional; Microsoft work/school fallback>"
+        "response": {
+          "id_token": "<compact RS256 JWS>",
+          "graph_access_token": "<optional; Microsoft work/school fallback>"
+        }
       },
       "success": {
         "identity_id": "<64 lowercase hex>",

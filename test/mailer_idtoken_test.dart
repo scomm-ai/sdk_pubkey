@@ -60,9 +60,10 @@ void main() {
     final publicKey = Uint8List(32)..[0] = 9;
     Map<String, dynamic>? requestBody;
     final client = clientWith((options) {
-      if (options.path.endsWith('/v1/otp/request')) {
+      if (options.path.contains('/challenges') &&
+          !options.path.endsWith('/responses')) {
         requestBody = Map<String, dynamic>.from(options.data as Map);
-        return {'accepted': true};
+        return {'id': 'chal_otp'};
       }
       return {
         'sha256': 'ef' * 32,
@@ -97,12 +98,16 @@ void main() {
     final expectedJkt = mailerMskJkt(publicKey);
     Map<String, dynamic>? challengeBody;
     final client = clientWith((options) {
-      if (options.path.endsWith('/v1/idtoken/challenge')) {
+      if (options.path.contains('/challenges') &&
+          !options.path.endsWith('/responses')) {
         challengeBody = Map<String, dynamic>.from(options.data as Map);
         return {
-          'challenge_id': 'chal',
+          'id': 'chal',
           'nonce': 'nonce-value',
-          'expires_in': 300,
+          'expiresAt': DateTime.now()
+              .toUtc()
+              .add(const Duration(seconds: 300))
+              .toIso8601String(),
         };
       }
       return {
@@ -134,14 +139,32 @@ void main() {
   });
 
   test('verify rejects a response that contains an email', () async {
-    final client = clientWith((_) => {
-          'identity_id': identity,
-          'otp_grant': 'grant-token',
-          'email': 'user@gmail.com',
-        });
+    final client = clientWith((options) {
+      if (!options.path.endsWith('/responses')) {
+        return {
+          'id': 'chal',
+          'nonce': 'nonce-value',
+          'expiresAt': DateTime.now()
+              .toUtc()
+              .add(const Duration(seconds: 300))
+              .toIso8601String(),
+        };
+      }
+      return {
+        'identity_id': identity,
+        'otp_grant': 'grant-token',
+        'email': 'user@gmail.com',
+      };
+    });
+    final challenge = await client.createIdTokenChallenge(
+      email: 'user@gmail.com',
+      provider: MailerIdTokenProvider.google,
+      purpose: MailerOtpPurpose.enroll,
+      mskPublicKey: Uint8List(32),
+    );
     expect(
       () => client.verifyIdToken(
-        challengeId: 'chal',
+        challengeId: challenge.challengeId,
         provider: MailerIdTokenProvider.google,
         purpose: MailerOtpPurpose.enroll,
         idToken: 'header.payload.sig',
@@ -181,11 +204,11 @@ void main() {
     );
     final client = MailerClient(baseUrl: 'http://mailer.test', dio: dio);
     expect(
-      () => client.verifyIdToken(
-        challengeId: 'chal',
+      () => client.createIdTokenChallenge(
+        email: 'user@gmail.com',
         provider: MailerIdTokenProvider.google,
         purpose: MailerOtpPurpose.enroll,
-        idToken: 'header.payload.sig',
+        mskPublicKey: Uint8List(32),
       ),
       throwsA(
         isA<PubkeyException>().having(

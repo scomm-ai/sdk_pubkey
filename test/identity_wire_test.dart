@@ -13,10 +13,10 @@ void main() {
     dio.httpClientAdapter = _Capture((options) async {
       seen.add(options);
       final path = options.uri.path;
-      if (path.endsWith('/v1/otp/request')) {
-        return _json({'ok': true}, status: 202);
+      if (path.contains('/challenges') && !path.endsWith('/responses')) {
+        return _json({'id': 'chal_test'});
       }
-      if (path.endsWith('/v1/otp/verify')) {
+      if (path.endsWith('/responses')) {
         return _json({
           'identity_id': 'ab' * 32,
           'otp_grant': 'header.payload.sig',
@@ -68,17 +68,18 @@ void main() {
     expect(
       mailer.any(
         (r) =>
-            r.uri.path.endsWith('/otp/request') &&
+            r.uri.path.contains('/challenges') &&
+            !r.uri.path.endsWith('/responses') &&
             jsonEncode(r.data).contains('alice@example.com'),
       ),
       isTrue,
     );
     expect(
-      mailer.where((r) => r.uri.path.endsWith('/otp/verify')).every((r) {
+      mailer.where((r) => r.uri.path.endsWith('/responses')).every((r) {
         final body = jsonEncode(r.data);
         return !body.contains('alice@example.com') &&
             !body.contains('"email"') &&
-            body.contains('sha256');
+            r.uri.path.contains('/mailboxes/');
       }),
       isTrue,
     );

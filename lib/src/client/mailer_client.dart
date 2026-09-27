@@ -112,6 +112,39 @@ class MailerClient {
 
   MailerIdTokenConfig? _idTokenConfig;
   DateTime? _idTokenConfigUntil;
+  final Map<String, String> _otpChallengeIds = {};
+  final Map<String, String> _challengeMailboxes = {};
+
+  static const _emailOtpType =
+      'https://discovery.scomm.ai/challenges/email-otp/v1';
+  static const _oidcType =
+      'https://discovery.scomm.ai/challenges/oidc-id-token/v1';
+
+  static const _purposeUris = {
+    MailerOtpPurpose.enroll:
+        'https://discovery.scomm.ai/operations/msk/enroll/v1',
+    MailerOtpPurpose.replaceMsk:
+        'https://discovery.scomm.ai/operations/msk/replace/v1',
+    MailerOtpPurpose.vaultOpen:
+        'https://discovery.scomm.ai/operations/vault/open/v1',
+    MailerOtpPurpose.vaultBackup:
+        'https://discovery.scomm.ai/operations/vault/backup-fetch/v1',
+    MailerOtpPurpose.recoveryEnvelope:
+        'https://discovery.scomm.ai/operations/recovery/envelope-fetch/v1',
+    MailerOtpPurpose.recoveryGeneration:
+        'https://discovery.scomm.ai/operations/recovery/generation/v1',
+  };
+
+  static String _purposeUri(String purpose) {
+    final uri = _purposeUris[purpose];
+    if (uri == null) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'Unknown mailer purpose $purpose',
+      );
+    }
+    return uri;
+  }
 
   /// Always treats a uniform success as "a code was sent if this mailbox
   /// can be used." Does not distinguish unknown vs enrolled.
@@ -126,16 +159,25 @@ class MailerClient {
     _requireBaseUrl();
     final canonical = requireCanonicalEmail(normalizeEmail(email));
     _requireArmingKey(purpose, mskPublicKey);
-    await pubkeyRequest(
+    final sha = emailSha256Hex(canonical);
+    final result = await pubkeyRequest(
       dio,
-      joinUrl(baseUrl, '/v1/otp/request'),
+      joinUrl(baseUrl, '/v1/mailboxes/$sha/challenges'),
       method: 'POST',
       body: {
+        'type': _emailOtpType,
         'email': canonical,
-        'purpose': purpose,
+        'purpose': _purposeUri(purpose),
         if (mskPublicKey != null) 'msk_jkt': mailerMskJkt(mskPublicKey),
       },
     );
+    if (result is! Map || result['id'] is! String) {
+      throw PubkeyException(
+        ErrorCodes.otpInvalid,
+        'Mailer challenge response did not return an id',
+      );
+    }
+    _otpChallengeIds['$sha:$purpose'] = result['id'] as String;
   }
 
   static void _requireArmingKey(String purpose, List<int>? mskPublicKey) {
@@ -156,14 +198,22 @@ class MailerClient {
   }) async {
     _requireBaseUrl();
     final sha256 = emailSha256Hex(email);
+    final challengeId = _otpChallengeIds['$sha256:$purpose'];
+    if (challengeId == null) {
+      throw PubkeyException(
+        ErrorCodes.otpInvalid,
+        'Call requestOtp before verifyOtp',
+      );
+    }
     final result = await pubkeyRequest(
       dio,
-      joinUrl(baseUrl, '/v1/otp/verify'),
+      joinUrl(
+        baseUrl,
+        '/v1/mailboxes/$sha256/challenges/$challengeId/responses',
+      ),
       method: 'POST',
       body: {
-        'sha256': sha256,
-        'otp': otp.trim(),
-        'purpose': purpose,
+        'response': {'code': otp.trim()},
       },
     );
     if (result is! Map) {
@@ -187,7 +237,7 @@ class MailerClient {
     if (cached != null && until != null && DateTime.now().isBefore(until)) {
       return cached;
     }
-    final url = joinUrl(baseUrl, '/v1/idtoken/config');
+    final url = joinUrl(baseUrl, '/v1/challenges/config');
     late final Response<dynamic> response;
     try {
       response = await dio.get<dynamic>(
@@ -247,15 +297,17 @@ class MailerClient {
     _requireBaseUrl();
     final canonical = requireCanonicalEmail(normalizeEmail(email));
     _requireArmingKey(purpose, mskPublicKey);
+    final sha = emailSha256Hex(canonical);
     final body = <String, dynamic>{
+      'type': _oidcType,
       'email': canonical,
       'provider': provider,
-      'purpose': purpose,
+      'purpose': _purposeUri(purpose),
       if (mskPublicKey != null) 'msk_jkt': mailerMskJkt(mskPublicKey),
     };
     final result = await pubkeyRequest(
       dio,
-      joinUrl(baseUrl, '/v1/idtoken/challenge'),
+      joinUrl(baseUrl, '/v1/mailboxes/$sha/challenges'),
       method: 'POST',
       body: body,
     );
@@ -265,19 +317,23 @@ class MailerClient {
         'Mailer challenge response was not a JSON object',
       );
     }
-    final challengeId = result['challenge_id'];
+    final challengeId = result['id'];
     final nonce = result['nonce'];
-    final expiresIn = result['expires_in'];
+    final expiresAt = result['expiresAt'];
+    final expiresIn = expiresAt is String
+        ? DateTime.parse(expiresAt).difference(DateTime.now()).inSeconds
+        : null;
     if (challengeId is! String ||
         challengeId.isEmpty ||
         nonce is! String ||
         nonce.isEmpty ||
-        expiresIn is! int) {
+        expiresIn == null) {
       throw PubkeyException(
         ErrorCodes.idTokenChallengeInvalid,
-        'Mailer challenge response is missing challenge_id, nonce, or expires_in',
+        'Mailer challenge response is missing id, nonce, or expiresAt',
       );
     }
+    _challengeMailboxes[challengeId] = sha;
     if (result.containsKey('email') || result.containsKey('mailbox')) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
@@ -300,17 +356,29 @@ class MailerClient {
     String? graphAccessToken,
   }) async {
     _requireBaseUrl();
+    if (provider.isEmpty || purpose.isEmpty) {
+      throw PubkeyException(
+        ErrorCodes.invalidRequest,
+        'provider and purpose are required',
+      );
+    }
+    final sha = _challengeMailboxes[challengeId];
+    if (sha == null) {
+      throw PubkeyException(
+        ErrorCodes.idTokenInvalid,
+        'Call createIdTokenChallenge before verifyIdToken',
+      );
+    }
     final result = await pubkeyRequest(
       dio,
-      joinUrl(baseUrl, '/v1/idtoken/verify'),
+      joinUrl(baseUrl, '/v1/mailboxes/$sha/challenges/$challengeId/responses'),
       method: 'POST',
       body: {
-        'challenge_id': challengeId,
-        'provider': provider,
-        'purpose': purpose,
-        'id_token': idToken,
-        if (graphAccessToken != null && graphAccessToken.isNotEmpty)
-          'graph_access_token': graphAccessToken,
+        'response': {
+          'id_token': idToken,
+          if (graphAccessToken != null && graphAccessToken.isNotEmpty)
+            'graph_access_token': graphAccessToken,
+        },
       },
     );
     if (result is! Map) {
