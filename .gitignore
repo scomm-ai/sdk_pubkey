@@ -21,3 +21,7 @@ packages/js/node_modules/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Rust
+/target/
+**/target/
