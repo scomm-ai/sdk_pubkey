@@ -1,12 +1,83 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ckvf/ckvf.dart' show PepperKey;
+import 'package:ckvf/ckvf.dart'
+    show PepperKey, VaultContainer, base64urlToBytes, validateContainerShape;
 import 'package:dio/dio.dart';
 
 import 'authorization.dart';
 import 'errors.dart';
 import 'oprf/identity_voprf.dart';
+import 'signing.dart';
+
+/// A stored CKVF generation (`record` of a vault read).
+class VaultRecord {
+  const VaultRecord({
+    required this.container,
+    required this.mskSignature,
+    this.createdAt,
+  });
+
+  final VaultContainer container;
+
+  /// Raw 64-byte Ed25519 signature over [vaultRecordsSigningText].
+  final Uint8List mskSignature;
+  final String? createdAt;
+
+  int get generation => container.generation;
+  String get generationHash => container.generationHash;
+}
+
+/// Parsed `GET /v1/vault/{vault_id}/current|generation/{n}`.
+class VaultRead {
+  const VaultRead({
+    this.record,
+    this.mskPublicKey,
+    this.archivedMskPublicKeys = const [],
+    this.oprfToken,
+  });
+
+  factory VaultRead.fromJson(Map<String, dynamic> body) {
+    final raw = body['record'];
+    VaultRecord? record;
+    if (raw is Map && raw['container'] is Map) {
+      final sig = raw['msk_signature'];
+      final value = sig is Map ? sig['value'] : null;
+      if (value is! String) {
+        throw VaultClientException('bad_response', 'record.msk_signature');
+      }
+      final container = validateContainerShape(
+        Map<String, dynamic>.from(raw['container'] as Map),
+      );
+      if (raw['generation'] != null &&
+          raw['generation'] != container.generation) {
+        throw VaultClientException('bad_response', 'record.generation');
+      }
+      record = VaultRecord(
+        container: container,
+        mskSignature: base64urlToBytes(value, 64),
+        createdAt: raw['created_at']?.toString(),
+      );
+    }
+    final msk = body['msk_public_key'];
+    final archived = body['archived_msk_public_keys'];
+    return VaultRead(
+      record: record,
+      mskPublicKey: msk is String ? base64urlToBytes(msk, 32) : null,
+      archivedMskPublicKeys: archived is List
+          ? [for (final k in archived) base64urlToBytes('$k', 32)]
+          : const [],
+      oprfToken: body['oprf_token'] as String?,
+    );
+  }
+
+  final VaultRecord? record;
+
+  /// The armed MSK, then archived ones; a record may carry any of them.
+  final Uint8List? mskPublicKey;
+  final List<Uint8List> archivedMskPublicKeys;
+  final String? oprfToken;
+}
 
 class PepperKeyInfo {
   const PepperKeyInfo({
@@ -160,6 +231,88 @@ class VaultHostClient {
   ) =>
       _get('/v1/vault/$vaultId/generation/$n', authorization: authorization);
 
+  /// [current], parsed. `record` is null while the host stores no CKVF
+  /// container for this vault.
+  Future<VaultRead> currentRecord(
+    String vaultId,
+    VaultAuthorization authorization,
+  ) async =>
+      VaultRead.fromJson(await current(vaultId, authorization));
+
+  /// [generation], parsed.
+  Future<VaultRead> generationRecord(
+    String vaultId,
+    int n,
+    VaultAuthorization authorization,
+  ) async =>
+      VaultRead.fromJson(await generation(vaultId, n, authorization));
+
+  /// `POST /v1/vault/{vault_id}/records`: stores the next generation.
+  /// Throws `generation_conflict` (409) with the stored heads in
+  /// [VaultClientException.details] when [container] does not extend them.
+  Future<Map<String, dynamic>> putRecord({
+    required String identityId,
+    required VaultContainer container,
+    required MskSigner signer,
+    String? licenseDeviceId,
+  }) async =>
+      _post('/v1/vault/${container.vaultId}/records', {
+        'identity_id': identityId,
+        'container': container.toJson(),
+        'msk_signature': await signer.recordSignature(
+          identityId: identityId,
+          container: container,
+        ),
+        if (licenseDeviceId != null) 'license_device_id': licenseDeviceId,
+      });
+
+  /// `POST /v1/mutate` with an envelope from [MskSigner.envelope].
+  Future<Map<String, dynamic>> mutate(Map<String, dynamic> envelope) =>
+      _post('/v1/mutate', envelope);
+
+  /// `GET /v1/vault/{vault_id}/pending-mutations`.
+  Future<List<Map<String, dynamic>>> pendingMutations(
+    String vaultId,
+    VaultAuthorization authorization,
+  ) async {
+    final body = await _get(
+      '/v1/vault/$vaultId/pending-mutations',
+      authorization: authorization,
+    );
+    final list = body['mutations'];
+    if (list is! List) return const [];
+    return [for (final m in list) Map<String, dynamic>.from(m as Map)];
+  }
+
+  /// `POST /v1/pairing/{session_id}` (new device).
+  Future<Map<String, dynamic>> createPairing(
+    String sessionId,
+    Map<String, dynamic> body,
+  ) =>
+      _post('/v1/pairing/${Uri.encodeComponent(sessionId)}', body);
+
+  /// `GET /v1/pairing/{session_id}`. Only the new device passes
+  /// [retrieverDeviceId]; its first read of a responded session consumes it.
+  Future<Map<String, dynamic>> getPairing(
+    String sessionId, {
+    String? retrieverDeviceId,
+  }) =>
+      _get(
+        '/v1/pairing/${Uri.encodeComponent(sessionId)}'
+        '${retrieverDeviceId == null ? '' : '?retriever_device_id=${Uri.encodeQueryComponent(retrieverDeviceId)}'}',
+      );
+
+  /// `PUT /v1/pairing/{session_id}/response` (approving device).
+  Future<Map<String, dynamic>> respondPairing(
+    String sessionId,
+    Map<String, dynamic> body,
+  ) =>
+      _send(() => _dio.put<Object?>(
+            '$_base/v1/pairing/${Uri.encodeComponent(sessionId)}/response',
+            data: body,
+            options: _options(null),
+          ));
+
   /// `POST /v1/vault/open` with a `vault_open` grant and an MSK proof built
   /// by the pubkey SDK.
   Future<Map<String, dynamic>> openVault({
@@ -232,10 +385,12 @@ class VaultHostClient {
       }
       final body = res.data is Map ? res.data as Map : const {};
       final error = body['error'] is Map ? body['error'] as Map : body;
+      final details = error['details'];
       throw VaultClientException(
         '${error['code'] ?? 'http_${res.statusCode}'}',
         error['message'] as String?,
         res.statusCode,
+        details is Map ? Map<String, dynamic>.from(details) : null,
       );
     }
   }

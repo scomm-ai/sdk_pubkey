@@ -1,5 +1,5 @@
 name: scomm_vault_client
-description: Scomm.AI vault-host client. Identity OPRF, pepper POPRF, and vault routes over a CKVF container.
+description: Scomm.AI vault client. Local-first CKVF key vault, device pairing, identity OPRF, pepper POPRF, and vault-host routes.
 version: 0.1.0
 publish_to: none
 
@@ -10,7 +10,7 @@ dependencies:
   ckvf:
     git:
       url: https://github.com/scomm-public/ckvf.git
-      ref: 026079a59dc0e56ab41b17ba73be4ae8a4ea698f
+      ref: 6ec6685d169d81a14ed5bc56607fdb60fdf35a29
       path: packages/dart
   crypto: ^3.0.6
   dio: ^5.7.0
