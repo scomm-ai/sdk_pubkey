@@ -175,7 +175,7 @@ dependencies = [
 [[package]]
 name = "ckvf"
 version = "0.1.0"
-source = "git+https://github.com/scomm-public/ckvf.git?rev=47d7c7adb96078ae6164186dc14610f45e06d94a#47d7c7adb96078ae6164186dc14610f45e06d94a"
+source = "git+https://github.com/scomm-public/ckvf.git?rev=cad432c6209edbe1d53a656a07b1447127cd735c#cad432c6209edbe1d53a656a07b1447127cd735c"
 dependencies = [
  "aes-gcm",
  "argon2",

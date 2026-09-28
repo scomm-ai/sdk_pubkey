@@ -13,7 +13,7 @@ dependencies:
   ckvf:
     git:
       url: https://github.com/scomm-public/ckvf.git
-      ref: e4c883c44f438427a159494456802c7accd0a3d0
+      ref: cad432c6209edbe1d53a656a07b1447127cd735c
       path: packages/dart
   scomm_vault_client:
     path: packages/scomm_vault_client
@@ -24,5 +24,5 @@ dev_dependencies:
   scomm_openpgp:
     git:
       url: https://github.com/scomm-ai/scomm-openpgp.git
-      ref: 79ad3aaf7fc3d7846bbfa4f5b64270714957bf44
+      ref: 12afe256b7af5701e88cbd30b08d8c4adbed1830
       path: dart/scomm_openpgp
