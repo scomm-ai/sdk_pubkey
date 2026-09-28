@@ -1,7 +1,9 @@
+import 'openssl_crypto.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('mailbox OTP is 11-character Base62 and strips separators', () {
     expect(MailboxOtp.length, 11);
     expect(MailboxOtp.bits, 64);

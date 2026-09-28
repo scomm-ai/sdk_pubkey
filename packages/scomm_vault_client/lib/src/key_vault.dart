@@ -65,7 +65,7 @@ class VaultHostBinding {
     required String identityId,
     required List<int> deviceSeed,
     String? licenseDeviceId,
-    CkvfCrypto? crypto,
+    required CkvfCrypto crypto,
   }) =>
       VaultHostBinding(
         host: host,
@@ -93,8 +93,7 @@ class VaultHostBinding {
 /// a new generation persisted to [store]; [push] and [pull] converge with
 /// the host through `mergeOnto` (SPEC §12), never last-writer-wins.
 class KeyVault {
-  KeyVault(this.store, {CkvfCrypto? crypto, this.binding})
-      : crypto = crypto ?? defaultCkvfCrypto;
+  KeyVault(this.store, {required this.crypto, this.binding});
 
   final LocalVaultStore store;
   final CkvfCrypto crypto;
@@ -795,9 +794,9 @@ Future<UnlockedVault> openHostVaultWithSecret({
   required VaultAuthorization authorization,
   required String secret,
   String method = recoveryCodeOprfMethod,
-  CkvfCrypto? crypto,
+  required CkvfCrypto crypto,
 }) async {
-  final c = crypto ?? defaultCkvfCrypto;
+  final c = crypto;
   final read = await host.currentRecord(vaultId, authorization);
   final record = read.record;
   final token = read.oprfToken;

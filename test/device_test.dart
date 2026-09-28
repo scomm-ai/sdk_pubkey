@@ -1,7 +1,9 @@
+import 'openssl_crypto.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('device authorization omits unenforced permissions', () {
     final a = canonicalizeDeviceAuthorization({
       'principalId': 'p',

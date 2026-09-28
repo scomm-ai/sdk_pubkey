@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:ristretto255/ristretto255.dart';
+
+import '../digest.dart';
 
 import '../errors.dart';
 
@@ -53,7 +54,7 @@ Element _generator(List<int> prs, List<int> ci, List<int> sid) {
       .clamp(0, 1 << 30);
   final genStr = cpaceLvCat([_dsi, prs, Uint8List(zpad), ci, sid]);
   final g = Element.newElement();
-  g.setUniformBytes(Uint8List.fromList(crypto.sha512.convert(genStr).bytes));
+  g.setUniformBytes(VaultDigest.sha512(genStr));
   return g;
 }
 
@@ -79,11 +80,11 @@ Element _decode(List<int> bytes) {
 
 Uint8List _isk(List<int> sid, List<int> k, List<int> ya, List<int> yb) {
   final prefix = cpaceLvCat([_dsiIsk, sid, k]);
-  return Uint8List.fromList(crypto.sha512.convert([
+  return Uint8List.fromList(VaultDigest.sha512([
     ...prefix,
     ...cpaceLvCat([ya, const <int>[]]),
     ...cpaceLvCat([yb, const <int>[]]),
-  ]).bytes);
+  ]));
 }
 
 Element _shared(Scalar s, Element peer) {

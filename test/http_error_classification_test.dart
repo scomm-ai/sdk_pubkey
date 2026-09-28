@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:secmail_pubkey_sdk/src/errors.dart';
 import 'package:secmail_pubkey_sdk/src/http/http.dart';
@@ -24,6 +25,7 @@ DioException _dio({
 }
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('TLS handshake is not a plain unreachable error', () {
     final err = _dio(
       type: DioExceptionType.unknown,

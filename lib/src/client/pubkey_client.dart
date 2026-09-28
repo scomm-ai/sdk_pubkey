@@ -536,12 +536,10 @@ class PubkeyClient {
     return DiscoveryChallenge.fromJson(Map<String, dynamic>.from(data));
   }
 
-  /// Compatibility: send mailbox OTP for first-device enroll via challenges API
-  /// when [useGenericChallenges] is true; otherwise legacy `/v1/msk/enroll`.
+  /// Mailbox OTP is requested from the mailer, not the pubkey host.
   Future<dynamic> sendOtp({
     required String email,
     required List<int> mskPublicKey,
-    bool useGenericChallenges = false,
   }) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,

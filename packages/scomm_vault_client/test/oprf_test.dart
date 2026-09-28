@@ -1,3 +1,4 @@
+import 'openssl_ckvf.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -14,6 +15,7 @@ Uint8List b64(String s) => base64Url.decode(base64Url.normalize(s));
 Uint8List flip(Uint8List b, int i) => Uint8List.fromList(b)..[i] = b[i] ^ 0x01;
 
 void main() {
+  OpensslCkvfCrypto();
   group('pepper POPRF (ckvf test-vectors/pepper-oprf/poprf.json)', () {
     final v = fixture('pepper-poprf.json');
     final key = v['key'] as Map<String, dynamic>;

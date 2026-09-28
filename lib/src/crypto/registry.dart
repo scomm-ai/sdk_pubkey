@@ -1,6 +1,5 @@
 import '../constants.dart';
 import '../errors.dart';
-import 'dart_crypto.dart';
 import 'provider.dart';
 
 /// Central provider discovery. Protocol code must not branch on platform names.
@@ -84,9 +83,7 @@ class CryptoProviderRegistry {
   }
 }
 
-/// Software fallback only. Hosts register a [NativeCryptoProvider] when one exists.
-CryptoProviderRegistry createDefaultDartRegistry([
-  List<CryptoProvider>? providers,
-]) {
-  return CryptoProviderRegistry(providers ?? [DartCryptoProvider()]);
+/// Registry of the providers the host installed. There is no software fallback.
+CryptoProviderRegistry createCryptoRegistry(List<CryptoProvider> providers) {
+  return CryptoProviderRegistry(providers);
 }

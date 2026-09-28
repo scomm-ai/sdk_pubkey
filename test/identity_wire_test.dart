@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('enroll and directory omit mailbox addresses on pubkey host', () async {
     final seen = <RequestOptions>[];
     final dio = Dio();
@@ -39,6 +41,7 @@ void main() {
 
     final runtime = createPubkeyRuntime(
       'alice@example.com',
+      crypto: opensslCrypto(),
       dio: dio,
       readBaseUrl: 'http://pubkey.test',
       writeBaseUrl: 'http://pubkey.test',
@@ -109,6 +112,7 @@ void main() {
     });
     final runtime = createPubkeyRuntime(
       'alice@example.com',
+      crypto: opensslCrypto(),
       dio: dio,
       readBaseUrl: 'http://pubkey.test',
       writeBaseUrl: 'http://pubkey.test',

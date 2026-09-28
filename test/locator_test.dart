@@ -1,7 +1,9 @@
+import 'openssl_crypto.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('formats OpenPGP 64-bit Key-ID', () {
     expect(formatOpenPgpLocator('ab12cd34ef567890'), 'AB12-CD34-EF56-7890');
     expect(

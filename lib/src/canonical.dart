@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'constants.dart';
 import 'identity.dart';
 import 'jcs.dart';
-import 'native_vault.dart';
 
 /// Canonical bytes that an MSK Ed25519 signature covers.
 ///
@@ -109,21 +108,19 @@ Uint8List canonicalVaultRecordBytes({
   );
 }
 
-/// Unpadded base64url from the CKVF Rust library.
-String encodeBase64Url(List<int> bytes) => ScommVault.b64Encode(bytes);
+/// Unpadded base64url.
+String encodeBase64Url(List<int> bytes) =>
+    base64Url.encode(bytes).replaceAll('=', '');
 
-/// Historically this function has tolerated the standard base64 alphabet
-/// (`+`/`/`) and padding (`=`) in addition to url-safe unpadded input.
-/// [encodeBase64Url] itself never produces either, but some callers pass
-/// through externally-sourced strings, so both are normalized away before
-/// the Rust decoder, which rejects them. [FormatException] preserves this
-/// package's prior exception contract.
+/// Tolerates the standard base64 alphabet (`+`/`/`) and padding (`=`).
 Uint8List decodeBase64Url(String value) {
-  final normalized =
+  var normalized =
       value.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  final pad = (4 - normalized.length % 4) % 4;
+  normalized = normalized.padRight(normalized.length + pad, '=');
   try {
-    return ScommVault.b64Decode(normalized);
-  } on ArgumentError catch (e) {
-    throw FormatException('${e.message ?? e}', value);
+    return Uint8List.fromList(base64Url.decode(normalized));
+  } on FormatException {
+    rethrow;
   }
 }

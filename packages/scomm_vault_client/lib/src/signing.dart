@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:ckvf/ckvf.dart';
-import 'package:crypto/crypto.dart' as hash;
 
 import 'authorization.dart';
+import 'digest.dart';
 
 const int protocolVersion = 1;
 
@@ -29,7 +29,7 @@ String domainSeparator(String operation) =>
     'SComm/Pubkey/$protocolVersion/$operation';
 
 String payloadSha256Hex(Object? payload) =>
-    hash.sha256.convert(utf8.encode(jcs(payload ?? const {}))).toString();
+    VaultDigest.sha256Hex(utf8.encode(jcs(payload ?? const {})));
 
 String _nonce(CkvfCrypto crypto) => bytesToBase64url(crypto.randomBytes(16));
 
@@ -49,16 +49,16 @@ String vaultRecordsSigningText({
 
 /// Signs with an Ed25519 MSK seed (the CKVF payload's `msk.current`).
 class MskSigner {
-  MskSigner(List<int> seed, {CkvfCrypto? crypto})
+  MskSigner(List<int> seed, {required CkvfCrypto crypto})
       : _seed = Uint8List.fromList(seed),
-        _crypto = crypto ?? defaultCkvfCrypto {
+        _crypto = crypto {
     if (seed.length != 32) {
       throw ArgumentError.value(seed.length, 'seed', 'must be 32 bytes');
     }
   }
 
   /// The current MSK of an unlocked CKVF vault.
-  factory MskSigner.fromVault(UnlockedVault vault, {CkvfCrypto? crypto}) =>
+  factory MskSigner.fromVault(UnlockedVault vault, {required CkvfCrypto crypto}) =>
       MskSigner(
         base64urlToBytes(vault.payload.msk.current.privateKey, 32),
         crypto: crypto,
@@ -127,10 +127,10 @@ Future<VaultAuthorization> deviceReadAuthorization({
   required String vaultId,
   required String operation,
   Map<String, dynamic> payload = const {},
-  CkvfCrypto? crypto,
+  required CkvfCrypto crypto,
   DateTime? now,
 }) async {
-  final c = crypto ?? defaultCkvfCrypto;
+  final c = crypto;
   final timestamp = (now ?? DateTime.now()).millisecondsSinceEpoch;
   final nonce = _nonce(c);
   final payloadHash = payloadSha256Hex(payload);

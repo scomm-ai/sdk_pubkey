@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -44,9 +45,10 @@ ResponseBody _jsonError(String code, {int status = 409}) {
 }
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('PubkeyClient', () {
     test('initializes headlessly and signs a mutation envelope', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final msk = await crypto.generateSigningKey('ed25519');
       final calls = <RequestOptions>[];
       final dio = Dio();
@@ -88,7 +90,7 @@ void main() {
     });
 
     test('sends capability negotiation on GET', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       late String seen;
       final dio = Dio();
       dio.httpClientAdapter = _ScriptedAdapter((options) async {
@@ -126,7 +128,7 @@ void main() {
     });
 
     test('does not advertise PGP or S/MIME without engines', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final client = PubkeyClient(
         crypto: crypto,
         readBaseUrl: 'https://pubkey.test',
@@ -137,7 +139,7 @@ void main() {
     });
 
     test('retries connection failures then succeeds', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       var attempts = 0;
       final dio = Dio();
       dio.httpClientAdapter = _ScriptedAdapter((options) async {
@@ -174,7 +176,7 @@ void main() {
     test(
       'signed mutate treats nonce_replayed after connection drop as success',
       () async {
-        final crypto = DartCryptoProvider();
+        final crypto = opensslCrypto();
         final msk = await crypto.generateSigningKey('ed25519');
         var attempts = 0;
         final dio = Dio();
@@ -218,7 +220,7 @@ void main() {
     test(
       'signed mutate still fails on nonce_replayed without a prior drop',
       () async {
-        final crypto = DartCryptoProvider();
+        final crypto = opensslCrypto();
         final msk = await crypto.generateSigningKey('ed25519');
         final dio = Dio();
         dio.httpClientAdapter = _ScriptedAdapter((options) async {
@@ -254,7 +256,7 @@ void main() {
 
     test('requestVaultRecover rejects OTP recovery', () async {
       final client = PubkeyClient(
-        crypto: DartCryptoProvider(),
+        crypto: opensslCrypto(),
         readBaseUrl: 'https://pubkey.test',
         writeBaseUrl: 'https://api.pubkey.test',
       );

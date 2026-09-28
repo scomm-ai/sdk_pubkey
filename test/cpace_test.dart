@@ -1,12 +1,14 @@
+import 'openssl_crypto.dart';
 import 'dart:typed_data';
 
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('CPace-Ristretto255-SHA512', () {
     test('honest initiator and responder share isk', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final password = crypto.random(16);
       final sid = crypto.random(32);
       final ci = Uint8List.fromList([1, 2, 3]);
@@ -23,7 +25,7 @@ void main() {
     });
 
     test('mutated Ya diverges or is rejected', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final password = crypto.random(16);
       final sid = crypto.random(32);
       final start = await crypto.cpaceStart(password: password, sid: sid);
@@ -42,7 +44,7 @@ void main() {
     });
 
     test('wrong password diverges isk', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final sid = crypto.random(32);
       final start = await crypto.cpaceStart(
         password: crypto.random(16),
@@ -58,7 +60,7 @@ void main() {
     });
 
     test('invalid point is rejected', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final start = await crypto.cpaceStart(
         password: crypto.random(16),
         sid: crypto.random(32),

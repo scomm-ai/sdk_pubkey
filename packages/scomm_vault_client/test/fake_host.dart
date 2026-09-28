@@ -6,7 +6,9 @@ import 'package:scomm_vault_client/scomm_vault_client.dart';
 /// In-memory vault host with the records rules of ckvf
 /// `profiles/vault-host.md` §2.4 and the pairing mailbox.
 class FakeVaultHost extends VaultHostClient {
-  FakeVaultHost() : super('http://fake.invalid');
+  FakeVaultHost(this.crypto) : super('http://fake.invalid');
+
+  final CkvfCrypto crypto;
 
   final records = <Map<String, dynamic>>[];
   final pairings = <String, Map<String, dynamic>>{};
@@ -42,12 +44,12 @@ class FakeVaultHost extends VaultHostClient {
     String? licenseDeviceId,
   }) async {
     _online();
-    await Ckvf.validate(container);
+    await Ckvf.validate(container, crypto: crypto);
     final sig = await signer.recordSignature(
       identityId: identityId,
       container: container,
     );
-    final ok = await defaultCkvfCrypto.ed25519Verify(
+    final ok = await crypto.ed25519Verify(
       await signer.publicKey(),
       utf8.encode(vaultRecordsSigningText(
         identityId: identityId,

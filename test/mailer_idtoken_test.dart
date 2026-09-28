@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -5,6 +6,7 @@ import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   final identity = 'ab' * 32;
 
   MailerClient clientWith(Map<String, dynamic> Function(RequestOptions) reply) {

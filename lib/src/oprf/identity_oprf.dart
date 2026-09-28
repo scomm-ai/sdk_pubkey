@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
+import '../protocol_digest.dart';
 import 'package:ristretto255/ristretto255.dart';
 
 import '../errors.dart';
@@ -97,7 +97,7 @@ Uint8List oprfFinalize({
     ..add(_i2osp(serialized.length, 2))
     ..add(serialized)
     ..add(utf8.encode('Finalize'));
-  return Uint8List.fromList(sha512.convert(hashInput.toBytes()).bytes);
+  return ProtocolDigest.sha512(hashInput.toBytes());
 }
 
 /// 64-character lowercase hex `identity_id`.

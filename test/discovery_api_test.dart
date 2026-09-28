@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('DiscoveryDocument preserves unknown extensions', () {
     final doc = DiscoveryDocument.fromJson({
       'schemaVersion': '1.0',
@@ -40,7 +42,7 @@ void main() {
 
   test('mailbox path hashes a mailbox and accepts a digest', () {
     final client = PubkeyClient(
-      crypto: DartCryptoProvider(),
+      crypto: opensslCrypto(),
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
     );

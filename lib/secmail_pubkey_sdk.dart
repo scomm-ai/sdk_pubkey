@@ -3,7 +3,7 @@
 ///
 /// Vault create/open/sync/pairing/recovery live in
 /// `package:scomm_vault_client`. This package keeps discovery, MSK arming,
-/// mailer OTP, and a [LegacyVaultMigrator] for one-shot CKVF cutover.
+/// mailer OTP, and MSK proofs.
 library;
 
 export 'src/canonical.dart';
@@ -19,8 +19,6 @@ export 'src/discovery/document.dart';
 export 'src/discovery/scomm_key_id.dart';
 export 'src/discovery/types.dart';
 export 'src/crypto/capabilities.dart';
-export 'src/crypto/dart_crypto.dart';
-export 'src/crypto/native_provider.dart';
 export 'src/crypto/provider.dart';
 export 'src/crypto/registry.dart';
 export 'src/engines/openpgp_rfc9980.dart';
@@ -29,7 +27,6 @@ export 'src/engines/smime.dart';
 export 'src/errors.dart';
 export 'src/identity.dart';
 export 'src/jcs.dart';
-export 'src/native_vault.dart' show ensureScommVault;
 export 'src/locator.dart';
 export 'src/registry.dart';
 // `createPubkeyRuntime`/`createPubkeyClient`/`createDiscoveryPubkeyClient`
@@ -41,5 +38,4 @@ export 'src/registry.dart';
 // 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart' directly.
 export 'src/runtime/pubkey_runtime.dart'
     hide createPubkeyRuntime, createPubkeyClient, createDiscoveryPubkeyClient;
-export 'src/vault/legacy_decode.dart';
-export 'src/vault/legacy_migrator.dart';
+export 'src/protocol_digest.dart';

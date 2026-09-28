@@ -234,7 +234,7 @@ const int vaultFormatVersion = 1;
 const String vaultAead = 'aes-256-gcm';
 
 /// Argon2id parameters (OWASP device-class minimum: >=19 MiB, >=2 iterations,
-/// parallelism 1). `memory` is in KiB, matching `package:cryptography`.
+/// parallelism 1). `memory` is in KiB.
 const String eekKdf = 'argon2id';
 const int argon2idDefaultMemoryKib = 19456; // ~19 MiB
 const int argon2idDefaultIterations = 3;

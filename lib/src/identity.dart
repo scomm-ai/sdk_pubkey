@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
+
+import 'protocol_digest.dart';
 
 import 'errors.dart';
 
@@ -165,7 +166,7 @@ String sha256ToUuidV8(List<int> sha256) {
 
 Uint8List sha256Bytes(Object data) {
   final encoded = data is String ? utf8.encode(data) : data as List<int>;
-  return Uint8List.fromList(sha256.convert(encoded).bytes);
+  return ProtocolDigest.sha256(encoded);
 }
 
 String textToUuidV8(String value) => sha256ToUuidV8(sha256Bytes(value));

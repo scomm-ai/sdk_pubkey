@@ -6,7 +6,6 @@ import '../client/mailer_client.dart';
 import '../client/pubkey_client.dart';
 import '../config/pubkey_config.dart';
 import '../constants.dart';
-import '../crypto/dart_crypto.dart';
 import '../crypto/provider.dart';
 import '../engines/pgp.dart';
 import '../engines/smime.dart';
@@ -27,7 +26,7 @@ class PubkeyRuntime {
   });
 
   final String accountEmail;
-  final DartCryptoProvider crypto;
+  final CryptoProvider crypto;
   final PubkeyClient client;
   final MailerClient mailer;
 
@@ -45,10 +44,21 @@ class PubkeyRuntime {
 
   static String _normalize(String email) => email.trim().toLowerCase();
 
+  /// Provider installed by the host before [instance] builds a runtime.
+  static CryptoProvider? installed;
+
   /// Builds the runtime for an email not yet cached by [instance]. Host
   /// apps override this once at startup to supply their Dio / base URLs.
   static PubkeyRuntime Function(String email, {Dio? dio}) factory =
-      createPubkeyRuntime;
+      _fromInstalled;
+
+  static PubkeyRuntime _fromInstalled(String email, {Dio? dio}) {
+    final crypto = installed;
+    if (crypto == null) {
+      throw StateError('PubkeyRuntime.installed is not set');
+    }
+    return createPubkeyRuntime(email, crypto: crypto, dio: dio);
+  }
 
   /// Gets (or lazily creates, via [factory]) the runtime scoped to [email].
   static PubkeyRuntime instance({required String email, Dio? dio}) {
@@ -64,7 +74,8 @@ class PubkeyRuntime {
   /// Clears every cached runtime (tests only).
   static void resetForTest() {
     _instances.clear();
-    factory = createPubkeyRuntime;
+    factory = _fromInstalled;
+    installed = null;
   }
 
   /// Caches [key] as the in-process MSK after a successful directory arm.
@@ -111,6 +122,7 @@ class PubkeyRuntime {
 /// Builds a discovery/MSK [PubkeyRuntime] for [email].
 PubkeyRuntime createPubkeyRuntime(
   String email, {
+  required CryptoProvider crypto,
   Dio? dio,
   String? readBaseUrl,
   String? writeBaseUrl,
@@ -121,7 +133,6 @@ PubkeyRuntime createPubkeyRuntime(
   Object? store,
   bool rfc9980Ready = true,
 }) {
-  final crypto = DartCryptoProvider();
   final pgp = DelegatingPgpEngine(
     advertisedAlgorithms: OpenPgpAlgorithms.advertised(
       rfc9980Ready: rfc9980Ready,
@@ -180,13 +191,13 @@ PubkeyClient createPubkeyClient(String email) =>
 
 /// Builds an account-agnostic [PubkeyClient] for read-only directory lookups.
 PubkeyClient createDiscoveryPubkeyClient({
+  required CryptoProvider crypto,
   String? readBaseUrl,
   String? writeBaseUrl,
   String? vaultBaseUrl,
   Dio? dio,
   bool rfc9980Ready = true,
 }) {
-  final crypto = DartCryptoProvider();
   final pgp = DelegatingPgpEngine(
     advertisedAlgorithms: OpenPgpAlgorithms.advertised(
       rfc9980Ready: rfc9980Ready,

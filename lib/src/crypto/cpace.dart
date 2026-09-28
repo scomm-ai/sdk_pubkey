@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:ristretto255/ristretto255.dart';
 
 import '../errors.dart';
+import '../protocol_digest.dart';
 
 /// CPace-Ristretto255-SHA512 as in draft-irtf-cfrg-cpace-21 §8.3.
 ///
@@ -64,7 +64,7 @@ Uint8List _generatorString(List<int> prs, List<int> ci, List<int> sid) {
 
 Element _calculateGenerator(List<int> prs, List<int> ci, List<int> sid) {
   final genStr = _generatorString(prs, ci, sid);
-  final hashed = Uint8List.fromList(crypto.sha512.convert(genStr).bytes);
+  final hashed = ProtocolDigest.sha512(genStr);
   final g = Element.newElement();
   g.setUniformBytes(hashed);
   return g;
@@ -118,7 +118,7 @@ Uint8List _isk({
     ...cpaceLvCat([yb, const <int>[]]),
   ]);
   return Uint8List.fromList(
-    crypto.sha512.convert([...prefix, ...transcript]).bytes,
+    ProtocolDigest.sha512([...prefix, ...transcript]),
   );
 }
 

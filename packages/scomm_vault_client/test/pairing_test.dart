@@ -1,3 +1,4 @@
+import 'openssl_ckvf.dart';
 import 'dart:typed_data';
 
 import 'package:ckvf/ckvf.dart';
@@ -11,7 +12,7 @@ const identityId =
     'abababababababababababababababababababababababababababababababab';
 
 void main() {
-  final crypto = DartCkvfCrypto();
+  final crypto = OpensslCkvfCrypto();
 
   test('CPace and TEK match the pubkey SDK v2 pairing bytes', () {
     const session = '00112233445566778899aabbccddeeff';
@@ -76,7 +77,7 @@ void main() {
         );
 
     setUp(() async {
-      host = FakeVaultHost();
+      host = FakeVaultHost(crypto);
       laptop =
           KeyVault(MemoryLocalVaultStore(), crypto: crypto, binding: bind());
       await laptop.create(

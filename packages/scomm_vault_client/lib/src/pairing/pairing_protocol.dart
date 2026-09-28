@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:ckvf/ckvf.dart';
-import 'package:crypto/crypto.dart' as hash;
+
+import '../digest.dart';
 
 import '../errors.dart';
 
@@ -128,7 +129,7 @@ abstract final class PairingProtocol {
       ..add(utf8.encode(identityId))
       ..addByte(0)
       ..add(utf8.encode(pairingTier));
-    return Uint8List.fromList(hash.sha256.convert(material.toBytes()).bytes);
+    return VaultDigest.sha256(material.toBytes());
   }
 
   static Uint8List ci(String identityId) =>
@@ -207,11 +208,11 @@ Uint8List hkdfSha256(
   int length = 32,
   List<int>? salt,
 }) {
-  final prk = hash.Hmac(hash.sha256, salt ?? Uint8List(32)).convert(ikm).bytes;
+  final prk = VaultDigest.hmacSha256(salt ?? Uint8List(32), ikm);
   final out = BytesBuilder(copy: false);
   var t = <int>[];
   for (var i = 1; out.length < length; i++) {
-    t = hash.Hmac(hash.sha256, prk).convert([...t, ...info, i]).bytes;
+    t = VaultDigest.hmacSha256(prk, [...t, ...info, i]);
     out.add(t);
   }
   return Uint8List.fromList(out.toBytes().sublist(0, length));

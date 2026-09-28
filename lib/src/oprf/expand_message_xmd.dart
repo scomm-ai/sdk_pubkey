@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
+import '../protocol_digest.dart';
 
 /// `expand_message_xmd` with SHA-512 (RFC 9380).
 Uint8List expandMessageXmdSha512(
@@ -26,14 +26,12 @@ Uint8List expandMessageXmdSha512(
     ..add(_i2osp(lengthInBytes, 2))
     ..addByte(0)
     ..add(dstPrime);
-  final b0 = Uint8List.fromList(sha512.convert(msgPrime.toBytes()).bytes);
-  var previous = Uint8List.fromList(
-    sha512.convert([...b0, 1, ...dstPrime]).bytes,
-  );
+  final b0 = ProtocolDigest.sha512(msgPrime.toBytes());
+  var previous = ProtocolDigest.sha512([...b0, 1, ...dstPrime]);
   final out = BytesBuilder(copy: false)..add(previous);
   for (var i = 2; i <= ell; i++) {
     previous = Uint8List.fromList(
-      sha512.convert([..._xor(b0, previous), i, ...dstPrime]).bytes,
+      ProtocolDigest.sha512([..._xor(b0, previous), i, ...dstPrime]),
     );
     out.add(previous);
   }

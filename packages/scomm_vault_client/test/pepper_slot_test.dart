@@ -1,3 +1,4 @@
+import 'openssl_ckvf.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -12,7 +13,7 @@ const password = 'generated-high-entropy-password';
 
 /// Real crypto with Argon2id at the test floor so pepper slots (m=65536,
 /// t=3 in the container) stay fast.
-class FastKdfCrypto extends DartCkvfCrypto {
+class FastKdfCrypto extends OpensslCkvfCrypto {
   @override
   Future<Uint8List> argon2id({
     required List<int> password,
@@ -133,6 +134,7 @@ ResponseBody _err(int status, String code) => ResponseBody.fromString(
 Uint8List key(int b) => Uint8List(32)..[0] = b;
 
 void main() {
+  OpensslCkvfCrypto();
   final crypto = FastKdfCrypto();
   late FakeVaultHost host;
   late VaultHostClient client;

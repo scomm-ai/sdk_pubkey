@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:ristretto255/ristretto255.dart';
+
+import '../digest.dart';
 
 import '../errors.dart';
 
@@ -87,7 +88,7 @@ List<int> lp(List<int> x) => [..._i2osp(x.length, 2), ...x];
   Scalar? k,
 }) {
   final seedDst = [...utf8.encode('Seed-'), ...contextString(mode)];
-  final seed = sha512.convert([...lp(enc(b)), ...lp(seedDst)]).bytes;
+  final seed = VaultDigest.sha512([...lp(enc(b)), ...lp(seedDst)]);
   final di = hashToScalar([
     ...lp(seed),
     ..._i2osp(0, 2),
@@ -162,12 +163,12 @@ Uint8List generateProof(
 /// `Hash(I2OSP(len(input),2) || input || [info] || I2OSP(len(N),2) || N || "Finalize")`.
 Uint8List finalizeHash(List<int> input, Element unblinded, [List<int>? info]) =>
     Uint8List.fromList(
-      sha512.convert([
+      VaultDigest.sha512([
         ...lp(input),
         if (info != null) ...lp(info),
         ...lp(enc(unblinded)),
         ...utf8.encode('Finalize'),
-      ]).bytes,
+      ]),
     );
 
 /// `expand_message_xmd` with SHA-512 (RFC 9380 §5.3.1).
@@ -179,18 +180,18 @@ Uint8List expandMessageXmdSha512(List<int> msg, List<int> dst, int len) {
   }
   final ell = (len + hashBytes - 1) ~/ hashBytes;
   final dstPrime = [...dst, dst.length];
-  final b0 = sha512.convert([
+  final b0 = VaultDigest.sha512([
     ...Uint8List(blockBytes),
     ...msg,
     ..._i2osp(len, 2),
     0,
     ...dstPrime,
-  ]).bytes;
-  var prev = sha512.convert([...b0, 1, ...dstPrime]).bytes;
+  ]);
+  var prev = VaultDigest.sha512([...b0, 1, ...dstPrime]);
   final out = <int>[...prev];
   for (var i = 2; i <= ell; i++) {
     final x = List<int>.generate(64, (j) => b0[j] ^ prev[j]);
-    prev = sha512.convert([...x, i, ...dstPrime]).bytes;
+    prev = VaultDigest.sha512([...x, i, ...dstPrime]);
     out.addAll(prev);
   }
   return Uint8List.fromList(out.sublist(0, len));

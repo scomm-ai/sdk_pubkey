@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
+import '../protocol_digest.dart';
 import 'package:dio/dio.dart';
 
 import '../errors.dart';
@@ -66,7 +66,7 @@ class MailerIdTokenConfig {
 
 /// `base64url(sha256(raw MSK public key))` without padding.
 String mailerMskJkt(List<int> mskPublicKey) {
-  final digest = sha256.convert(mskPublicKey).bytes;
+  final digest = ProtocolDigest.sha256(mskPublicKey);
   return base64Url.encode(digest).replaceAll('=', '');
 }
 
@@ -183,7 +183,8 @@ class MailerClient {
   static void _requireArmingKey(String purpose, List<int>? mskPublicKey) {
     final arming = purpose == MailerOtpPurpose.enroll ||
         purpose == MailerOtpPurpose.replaceMsk;
-    if (arming && (mskPublicKey == null || mskPublicKey.length != 32)) {
+    final length = mskPublicKey?.length;
+    if (arming && length != 32 && length != 1984) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
         'mskPublicKey is required for $purpose',

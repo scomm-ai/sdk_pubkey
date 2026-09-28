@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:secmail_pubkey_sdk/src/client/grant_v1.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   final doc = jsonDecode(
     File('conformance/fixtures/grant-vectors.json').readAsStringSync(),
   ) as Map<String, dynamic>;

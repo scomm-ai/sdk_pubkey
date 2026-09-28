@@ -1,7 +1,9 @@
+import 'openssl_crypto.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('PubkeyConfig.requireUrl', () {
     test('returns a non-empty origin', () {
       expect(
@@ -36,7 +38,7 @@ void main() {
 
   test('PubkeyClient fails closed when hosts are omitted', () {
     expect(
-      () => PubkeyClient(crypto: DartCryptoProvider()),
+      () => PubkeyClient(crypto: opensslCrypto()),
       throwsStateError,
     );
   });

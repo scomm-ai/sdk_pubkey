@@ -1,3 +1,4 @@
+import 'openssl_ckvf.dart';
 import 'dart:typed_data';
 
 import 'package:ckvf/ckvf.dart';
@@ -10,7 +11,7 @@ const identityId =
     'abababababababababababababababababababababababababababababababab';
 
 void main() {
-  final crypto = DartCkvfCrypto();
+  final crypto = OpensslCkvfCrypto();
   late FakeVaultHost host;
 
   VaultHostBinding bind() => VaultHostBinding(
@@ -61,7 +62,7 @@ void main() {
     return other;
   }
 
-  setUp(() => host = FakeVaultHost());
+  setUp(() => host = FakeVaultHost(crypto));
 
   test('create, reopen with the device slot, keep key metadata', () async {
     final store = MemoryLocalVaultStore();

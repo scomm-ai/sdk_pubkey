@@ -75,9 +75,9 @@ Future<PairingOffer> startPairing({
   bool typedPassword = false,
   Duration pollInterval = const Duration(seconds: 4),
   int expiresInSeconds = 300,
-  CkvfCrypto? crypto,
+  required CkvfCrypto crypto,
 }) async {
-  final c = crypto ?? defaultCkvfCrypto;
+  final c = crypto;
   final sessionId = PairingProtocol.generateSessionId(c);
   final typed = typedPassword ? PairingProtocol.generateTypedPassword(c) : null;
   final password = typed != null

@@ -1,9 +1,11 @@
+import 'openssl_crypto.dart';
 import 'dart:typed_data';
 
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('protocolFamiliesFromPrimitives', () {
     test('does not advertise OpenPGP PQC without pgp_pqc engine', () {
       final mapped = protocolFamiliesFromPrimitives(

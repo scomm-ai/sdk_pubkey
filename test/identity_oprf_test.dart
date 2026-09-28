@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,6 +8,7 @@ import 'package:secmail_pubkey_sdk/src/oprf/identity_oprf.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   test('RFC 9497 A.1.1 vector 1 blinds and finalizes', () {
     final file = File('conformance/fixtures/identity-oprf.json');
     final doc = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;

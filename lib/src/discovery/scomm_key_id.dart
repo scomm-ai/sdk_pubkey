@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
+import '../protocol_digest.dart';
 
 /// SComm content-addressable signing key-id helpers.
 ///
@@ -11,7 +11,7 @@ abstract final class ScommKeyId {
 
   /// Derive from published public key material bytes.
   static String derive(List<int> publicMaterial) {
-    final digest = sha256.convert(publicMaterial).bytes;
+    final digest = ProtocolDigest.sha256(publicMaterial);
     return format(Uint8List.fromList(digest.sublist(0, 4)));
   }
 

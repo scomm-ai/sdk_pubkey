@@ -265,8 +265,7 @@ abstract class CryptoProvider {
   }
 
   /// Argon2id KDF for human-memorized secrets (backup passwords, recovery
-  /// codes). Backed by `package:cryptography`'s `Argon2id` in
-  /// [DartCryptoProvider].
+  /// codes). The host provider implements this with OpenSSL.
   Future<Uint8List> deriveArgon2id(
     List<int> passphrase,
     List<int> salt, {

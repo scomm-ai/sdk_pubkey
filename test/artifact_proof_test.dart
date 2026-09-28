@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+import 'openssl_crypto.dart';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -34,9 +35,10 @@ ResponseBody _jsonOk(Object body) {
 }
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('setSigningKeyWithProof', () {
     test('self_signature verifies against the artifact_pop canonical bytes', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final msk = await crypto.generateSigningKey('ed25519');
       final contentKey = await crypto.generateSigningKey('ed25519');
 
@@ -128,7 +130,7 @@ void main() {
     });
 
     test('compositePopSigner sends ML-DSA and Ed25519 values', () async {
-      final crypto = DartCryptoProvider();
+      final crypto = opensslCrypto();
       final msk = await crypto.generateSigningKey('ed25519');
       Map<String, dynamic>? capturedBody;
       final dio = Dio();

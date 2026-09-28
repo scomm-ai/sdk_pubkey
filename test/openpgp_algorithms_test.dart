@@ -1,8 +1,10 @@
+import 'openssl_crypto.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:secmail_pubkey_sdk/src/runtime/pubkey_runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('OpenPgpAlgorithms.advertised', () {
     test('classical only when rfc9980Ready is false', () {
       expect(
@@ -25,6 +27,7 @@ void main() {
 
   test('discovery client advertises PQC by default', () {
     final client = createDiscoveryPubkeyClient(
+      crypto: opensslCrypto(),
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
     );
@@ -36,6 +39,7 @@ void main() {
 
   test('discovery client advertises PQC independent of subscription', () {
     final client = createDiscoveryPubkeyClient(
+      crypto: opensslCrypto(),
       rfc9980Ready: true,
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
@@ -48,6 +52,7 @@ void main() {
 
   test('discovery client advertises S/MIME classical and PQC', () {
     final client = createDiscoveryPubkeyClient(
+      crypto: opensslCrypto(),
       readBaseUrl: 'https://pubkey.test',
       writeBaseUrl: 'https://api.pubkey.test',
     );

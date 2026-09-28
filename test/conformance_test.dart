@@ -1,3 +1,4 @@
+import 'openssl_crypto.dart';
 import 'dart:convert';
 
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
@@ -6,6 +7,7 @@ import 'package:test/test.dart';
 import 'helpers.dart';
 
 void main() {
+  OpensslCryptoProvider.installDigests();
   group('identity fixtures', () {
     final fixtures = loadFixture('normalized-identities.json');
 
@@ -121,7 +123,7 @@ void main() {
     final privateKey = hexToBytes(msk['private_key_hex'] as String);
     final fixtureSig = decodeBase64Url(vector['signature_base64url'] as String);
 
-    final crypto = DartCryptoProvider();
+    final crypto = opensslCrypto();
     expect(
       await crypto.verify(publicKey, canonical, fixtureSig),
       isTrue,

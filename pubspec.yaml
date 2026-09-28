@@ -1,5 +1,5 @@
 name: secmail_pubkey_sdk
-description: SComm pubkey protocol adapter. Canonicalization uses the CKVF Rust library.
+description: SComm pubkey protocol adapter. Canonicalization uses the CKVF Dart library.
 version: 2.0.0
 publish_to: none
 
@@ -7,15 +7,22 @@ environment:
   sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
-  crypto: ^3.0.6
-  ffi: ^2.1.4
-  cryptography: ^2.7.0
   dio: ^5.7.0
   ristretto255: ^1.0.2
   unorm_dart: ^0.3.0
+  ckvf:
+    git:
+      url: https://github.com/scomm-public/ckvf.git
+      ref: e4c883c44f438427a159494456802c7accd0a3d0
+      path: packages/dart
   scomm_vault_client:
     path: packages/scomm_vault_client
 
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.0
+  scomm_openpgp:
+    git:
+      url: https://github.com/scomm-ai/scomm-openpgp.git
+      ref: 79ad3aaf7fc3d7846bbfa4f5b64270714957bf44
+      path: dart/scomm_openpgp
