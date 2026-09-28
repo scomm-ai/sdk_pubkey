@@ -65,7 +65,7 @@ class VaultHostBinding {
     required String identityId,
     required List<int> deviceSeed,
     String? licenseDeviceId,
-    required CkvfCrypto crypto,
+    CkvfCrypto? crypto,
   }) =>
       VaultHostBinding(
         host: host,
@@ -93,7 +93,8 @@ class VaultHostBinding {
 /// a new generation persisted to [store]; [push] and [pull] converge with
 /// the host through `mergeOnto` (SPEC §12), never last-writer-wins.
 class KeyVault {
-  KeyVault(this.store, {required this.crypto, this.binding});
+  KeyVault(this.store, {CkvfCrypto? crypto, this.binding})
+      : crypto = crypto ?? defaultCkvfCrypto;
 
   final LocalVaultStore store;
   final CkvfCrypto crypto;
@@ -110,10 +111,30 @@ class KeyVault {
   String get vaultId => vault.container.vaultId;
   int get generation => vault.container.generation;
 
-  Uint8List get mskSeed =>
-      base64urlToBytes(vault.payload.msk.current.privateKey, 32);
-  Uint8List get mskPublicKey =>
-      base64urlToBytes(vault.payload.msk.current.publicKey, 32);
+  bool get mskIsHybrid =>
+      vault.payload.msk.current.algorithm == 'mldsa65-ed25519';
+
+  /// 32-byte Ed25519 seed, or 64-byte `mldsa65_seed || ed25519_seed`.
+  Uint8List get mskSeed {
+    final current = vault.payload.msk.current;
+    final privateKey = current.privateKey;
+    if (privateKey is Map) {
+      final mldsa = base64urlToBytes('${privateKey['mldsa65_seed']}', 32);
+      final ed = base64urlToBytes('${privateKey['ed25519_seed']}', 32);
+      return Uint8List.fromList([...mldsa, ...ed]);
+    }
+    if (privateKey is! String) {
+      throw StateError('msk private key');
+    }
+    final raw = base64urlToBytes(privateKey);
+    if (mskIsHybrid && raw.length == 64) return raw;
+    return base64urlToBytes(privateKey, 32);
+  }
+
+  Uint8List get mskPublicKey => base64urlToBytes(
+        vault.payload.msk.current.publicKey,
+        mskIsHybrid ? 1984 : 32,
+      );
   MskSigner get signer => MskSigner(mskSeed, crypto: crypto);
 
   List<KeyRecord> get keys => List.unmodifiable(vault.payload.keys);
@@ -237,6 +258,27 @@ class KeyVault {
           storedOnHost ? opened.container.generationHash : null,
         );
         await _persist(v);
+      });
+
+  /// Replaces the Ed25519 MSK with `mldsa65-ed25519` and seals container 1.1.
+  ///
+  /// [seeds] is `mldsa65_seed || ed25519_seed` (64 bytes). [publicKey] is the
+  /// 1,984-byte concatenation those seeds derive.
+  Future<void> rotateToHybridMsk({
+    required List<int> seeds,
+    required List<int> publicKey,
+  }) =>
+      _locked(() async {
+        if (!isOpen) throw StateError('KeyVault is not open');
+        if (mskIsHybrid) return;
+        final next = await replaceMskHybrid(
+          vault,
+          crypto,
+          publicKey: publicKey,
+          mldsaSeed: seeds.sublist(0, 32),
+          edSeed: seeds.sublist(32, 64),
+        );
+        await _persist(next);
       });
 
   /// Forgets the local vault on this device (the host copy is untouched).
@@ -794,9 +836,9 @@ Future<UnlockedVault> openHostVaultWithSecret({
   required VaultAuthorization authorization,
   required String secret,
   String method = recoveryCodeOprfMethod,
-  required CkvfCrypto crypto,
+  CkvfCrypto? crypto,
 }) async {
-  final c = crypto;
+  final c = crypto ?? defaultCkvfCrypto;
   final read = await host.currentRecord(vaultId, authorization);
   final record = read.record;
   final token = read.oprfToken;
@@ -836,8 +878,11 @@ Future<void> verifyRecordSignature(
     msk.current.publicKey,
     ...msk.history.map((h) => h.publicKey)
   ]) {
-    if (await crypto.ed25519Verify(
-        base64urlToBytes(pk, 32), text, record.mskSignature)) {
+    if (await verifyArmedMsk(
+      publicKey: base64urlToBytes(pk),
+      message: text,
+      signature: record.mskSignature,
+    )) {
       return;
     }
   }

@@ -55,7 +55,7 @@ class VaultRead {
       }
       record = VaultRecord(
         container: container,
-        mskSignature: base64urlToBytes(value, 64),
+        mskSignature: _mskMaterial(value, const {64, 3373}, 'record.msk_signature'),
         createdAt: raw['created_at']?.toString(),
       );
     }
@@ -63,9 +63,14 @@ class VaultRead {
     final archived = body['archived_msk_public_keys'];
     return VaultRead(
       record: record,
-      mskPublicKey: msk is String ? base64urlToBytes(msk, 32) : null,
+      mskPublicKey: msk is String
+          ? _mskMaterial(msk, const {32, 1984}, 'msk_public_key')
+          : null,
       archivedMskPublicKeys: archived is List
-          ? [for (final k in archived) base64urlToBytes('$k', 32)]
+          ? [
+              for (final k in archived)
+                _mskMaterial('$k', const {32, 1984}, 'archived_msk_public_keys'),
+            ]
           : const [],
       oprfToken: body['oprf_token'] as String?,
     );
@@ -403,6 +408,14 @@ Map<String, dynamic> _json(Object? data) {
 }
 
 String _b64(List<int> b) => base64Url.encode(b).replaceAll('=', '');
+
+Uint8List _mskMaterial(String value, Set<int> lengths, String field) {
+  final raw = base64urlToBytes(value);
+  if (!lengths.contains(raw.length)) {
+    throw VaultClientException('bad_response', field);
+  }
+  return raw;
+}
 
 Uint8List _bytes(Map body, String field, int length) {
   final v = body[field];

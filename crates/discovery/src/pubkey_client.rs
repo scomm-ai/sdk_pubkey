@@ -12,7 +12,7 @@ use crate::canonical::{
 };
 use crate::config::PubkeyConfig;
 use crate::constants::{
-    operations, purposes, ARTIFACT_POP_OPERATION, MSK_ALGORITHM, PROTOCOL_VERSION,
+    operations, purposes, ARTIFACT_POP_OPERATION, MSK_HYBRID, PROTOCOL_VERSION,
 };
 use crate::device::{
     device_authorization_payload, must_not_generate_msk, resolve_identity_ux_state,
@@ -51,6 +51,17 @@ pub struct DiscoveryClient {
     /// Public Discovery read host.
     pub read_base_url: String,
     http: HttpClient,
+}
+
+fn arm_proof_payload(algorithm: &str, public_key: &[u8]) -> Value {
+    if algorithm == MSK_HYBRID {
+        json!({
+            "algorithm": algorithm,
+            "public_key": encode_base64url(public_key),
+        })
+    } else {
+        json!({})
+    }
 }
 
 impl DiscoveryClient {
@@ -693,10 +704,11 @@ impl PubkeyClient {
         let principal = directory_sha
             .clone()
             .unwrap_or_else(|| identity_id.unwrap().to_string());
+        let arm_payload = arm_proof_payload(msk.algorithm(), &public_key);
         let proof = self.sign_operation(
             operations::ARM_MSK,
             &principal,
-            &json!({}),
+            &arm_payload,
             msk,
             None,
             Some(PROTOCOL_VERSION),
@@ -717,7 +729,7 @@ impl PubkeyClient {
             "identity_id": directory_sha.clone().unwrap_or_else(|| identity_id.unwrap().to_string()),
             "otp_grant": otp_grant,
             "msk": {
-                "algorithm": MSK_ALGORITHM,
+                "algorithm": msk.algorithm(),
                 "public_key": encode_base64url(&public_key),
             },
             "msk_proof": proof,
@@ -757,10 +769,11 @@ impl PubkeyClient {
     ) -> Result<Value, PubkeyError> {
         require_identity_id(identity_id)?;
         let public_key = require_msk_public_key(Some(msk.public_key()))?;
+        let arm_payload = arm_proof_payload(msk.algorithm(), &public_key);
         let proof = self.sign_operation(
             operations::ARM_REPLACEMENT_MSK,
             identity_id,
-            &json!({}),
+            &arm_payload,
             msk,
             None,
             Some(PROTOCOL_VERSION),
@@ -780,7 +793,7 @@ impl PubkeyClient {
             "identity_id": identity_id,
             "otp_grant": otp_grant,
             "msk": {
-                "algorithm": MSK_ALGORITHM,
+                "algorithm": msk.algorithm(),
                 "public_key": encode_base64url(&public_key),
             },
             "msk_proof": proof,
@@ -975,7 +988,7 @@ impl PubkeyClient {
             "nonce": nonce,
             "payload": payload,
             "signature": {
-                "algorithm": MSK_ALGORITHM,
+                "algorithm": msk.algorithm(),
                 "value": encode_base64url(&signature),
             },
         }))

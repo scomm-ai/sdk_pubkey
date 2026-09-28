@@ -1,13 +1,23 @@
-//! MSK signing trait and Ed25519 helper.
+//! MSK signing trait, Ed25519 helper, and ML-DSA-65+Ed25519 hybrid.
 
 use ed25519_dalek::{Signer as DalekSigner, SigningKey, VerifyingKey};
 
 use crate::canonical::encode_base64url;
+use crate::constants::MSK_ALGORITHM;
 use crate::errors::{ErrorCodes, PubkeyError};
+
+const MLDSA65_PUBLIC_KEY_BYTES: usize = 1952;
+const ED25519_PUBLIC_KEY_BYTES: usize = 32;
+const HYBRID_PUBLIC_KEY_BYTES: usize = MLDSA65_PUBLIC_KEY_BYTES + ED25519_PUBLIC_KEY_BYTES;
 
 /// Signs canonical MSK request bytes.
 pub trait MskSigner: Send + Sync {
-    /// Raw 32-byte public key.
+    /// Wire algorithm id. Ed25519 signers keep [`MSK_ALGORITHM`].
+    fn algorithm(&self) -> &str {
+        MSK_ALGORITHM
+    }
+
+    /// Raw public key. 32 bytes for Ed25519, 1,984 for the hybrid.
     fn public_key(&self) -> &[u8];
 
     /// Sign `message` bytes; return raw signature bytes.
@@ -63,13 +73,16 @@ impl MskSigner for Ed25519Signer {
     }
 }
 
-/// Require a 32-byte MSK public key.
+/// Require a public key whose length matches an MSK registry id.
 pub fn require_msk_public_key(key: Option<&[u8]>) -> Result<Vec<u8>, PubkeyError> {
     match key {
-        Some(k) if k.len() == 32 => Ok(k.to_vec()),
+        Some(k) if k.len() == ED25519_PUBLIC_KEY_BYTES || k.len() == HYBRID_PUBLIC_KEY_BYTES => {
+            Ok(k.to_vec())
+        }
         _ => Err(PubkeyError::new(
             ErrorCodes::INVALID_REQUEST,
-            "A 32-byte ed25519 MSK public key is required to arm",
+            "MSK public key must be 32 bytes (ed25519) or 1984 bytes (mldsa65-ed25519)",
         )),
     }
 }
+

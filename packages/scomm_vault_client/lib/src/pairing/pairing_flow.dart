@@ -7,6 +7,7 @@ import 'package:ckvf/ckvf.dart';
 import '../authorization.dart';
 import '../errors.dart';
 import '../key_vault.dart';
+import '../signing.dart';
 import '../vault_host_client.dart';
 import 'cpace.dart';
 import 'pairing_protocol.dart';
@@ -75,9 +76,9 @@ Future<PairingOffer> startPairing({
   bool typedPassword = false,
   Duration pollInterval = const Duration(seconds: 4),
   int expiresInSeconds = 300,
-  required CkvfCrypto crypto,
+  CkvfCrypto? crypto,
 }) async {
-  final c = crypto;
+  final c = crypto ?? defaultCkvfCrypto;
   final sessionId = PairingProtocol.generateSessionId(c);
   final typed = typedPassword ? PairingProtocol.generateTypedPassword(c) : null;
   final password = typed != null
@@ -214,10 +215,10 @@ Future<UnlockedVault> _awaitResponse({
     yb: yb,
     confirmationTag: confirmation,
   );
-  final signed = await crypto.ed25519Verify(
-    base64urlToBytes(opened.payload.msk.current.publicKey, 32),
-    transcript,
-    base64urlToBytes(sig, 64),
+  final signed = await verifyArmedMsk(
+    publicKey: base64urlToBytes(opened.payload.msk.current.publicKey),
+    message: transcript,
+    signature: base64urlToBytes(sig),
   );
   if (!signed) {
     throw VaultClientException(

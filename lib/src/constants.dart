@@ -4,6 +4,9 @@ const String protocolName = 'SComm/Pubkey';
 const int timestampWindowMs = 5 * 60 * 1000;
 const int nonceReplayTtlMs = timestampWindowMs + 60 * 1000;
 const String mskAlgorithm = 'ed25519';
+
+/// ML-DSA-65 concatenated with Ed25519. Enrollment stays [mskAlgorithm].
+const String mskHybridAlgorithm = 'mldsa65-ed25519';
 const int firstKeyId = 1;
 
 /// The `operation` a signing artifact's `self_signature` is computed over
@@ -234,7 +237,7 @@ const int vaultFormatVersion = 1;
 const String vaultAead = 'aes-256-gcm';
 
 /// Argon2id parameters (OWASP device-class minimum: >=19 MiB, >=2 iterations,
-/// parallelism 1). `memory` is in KiB.
+/// parallelism 1). `memory` is in KiB, matching `package:cryptography`.
 const String eekKdf = 'argon2id';
 const int argon2idDefaultMemoryKib = 19456; // ~19 MiB
 const int argon2idDefaultIterations = 3;

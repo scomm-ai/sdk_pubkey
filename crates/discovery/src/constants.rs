@@ -8,8 +8,10 @@ pub const PROTOCOL_NAME: &str = "SComm/Pubkey";
 pub const TIMESTAMP_WINDOW_MS: i64 = 5 * 60 * 1000;
 /// Nonce replay TTL (ms).
 pub const NONCE_REPLAY_TTL_MS: i64 = TIMESTAMP_WINDOW_MS + 60 * 1000;
-/// MSK algorithm wire name.
+/// MSK algorithm wire name for enrollment.
 pub const MSK_ALGORITHM: &str = "ed25519";
+/// Hybrid MSK: ML-DSA-65 public key concatenated with Ed25519.
+pub const MSK_HYBRID: &str = "mldsa65-ed25519";
 /// Artifact proof-of-possession operation.
 pub const ARTIFACT_POP_OPERATION: &str = "artifact_pop";
 /// Device authorization structure version.

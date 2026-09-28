@@ -536,10 +536,12 @@ class PubkeyClient {
     return DiscoveryChallenge.fromJson(Map<String, dynamic>.from(data));
   }
 
-  /// Mailbox OTP is requested from the mailer, not the pubkey host.
+  /// Compatibility: send mailbox OTP for first-device enroll via challenges API
+  /// when [useGenericChallenges] is true; otherwise legacy `/v1/msk/enroll`.
   Future<dynamic> sendOtp({
     required String email,
     required List<int> mskPublicKey,
+    bool useGenericChallenges = false,
   }) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,
@@ -715,13 +717,21 @@ class PubkeyClient {
   }
 
   static Uint8List _requireMskPublicKey(List<int>? key) {
-    if (key == null || key.length != 32) {
+    if (key == null || (key.length != 32 && key.length != 1984)) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
-        'A 32-byte ed25519 MSK public key is required to arm',
+        'MSK public key must be 32 bytes (ed25519) or 1984 bytes (mldsa65-ed25519)',
       );
     }
     return Uint8List.fromList(key);
+  }
+
+  Map<String, dynamic> _armPayload(KeyRef key, List<int> publicKey) {
+    if (key.algorithm != mskHybridAlgorithm) return const {};
+    return {
+      'algorithm': mskHybridAlgorithm,
+      'public_key': encodeBase64Url(publicKey),
+    };
   }
 
   /// Posts a single-call arm. A directory without `/v1/msk/arm` answers 404
@@ -773,7 +783,7 @@ class PubkeyClient {
     final proof = await _signOperation(
       operation: Operations.armMsk,
       principal: directorySha ?? identityId!,
-      payload: const {},
+      payload: _armPayload(mskKey, publicKey),
       key: mskKey,
       version: protocolVersion,
     );
@@ -788,7 +798,7 @@ class PubkeyClient {
       );
     }
     final msk = {
-      'algorithm': mskAlgorithm,
+      'algorithm': mskKey.algorithm,
       'public_key': encodeBase64Url(publicKey),
     };
     // Discovery arms the MSK. The vault host only evaluates the mailbox
@@ -828,7 +838,7 @@ class PubkeyClient {
     final proof = await _signOperation(
       operation: Operations.armReplacementMsk,
       principal: identityId,
-      payload: const {},
+      payload: _armPayload(mskKey, publicKey),
       key: mskKey,
       version: protocolVersion,
     );
@@ -846,7 +856,7 @@ class PubkeyClient {
       'identity_id': identityId,
       'otp_grant': otpGrant,
       'msk': {
-        'algorithm': mskAlgorithm,
+        'algorithm': mskKey.algorithm,
         'public_key': encodeBase64Url(publicKey),
       },
       'msk_proof': proof,
@@ -919,7 +929,7 @@ class PubkeyClient {
       'nonce': nonce,
       'payload': payload,
       'signature': {
-        'algorithm': mskAlgorithm,
+        'algorithm': key.algorithm,
         'value': encodeBase64Url(signature),
       },
     };

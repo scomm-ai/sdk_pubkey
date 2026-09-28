@@ -4,22 +4,20 @@ version: 0.2.0
 publish_to: none
 
 environment:
-  sdk: ">=3.5.0 <4.0.0"
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
   ckvf:
     git:
       url: https://github.com/scomm-public/ckvf.git
-      ref: e4c883c44f438427a159494456802c7accd0a3d0
+      ref: 47d7c7adb96078ae6164186dc14610f45e06d94a
       path: packages/dart
+  crypto: ^3.0.6
+  cryptography: ^2.7.0
+  pqcrypto: ^0.4.2
   dio: ^5.7.0
   ristretto255: ^1.0.2
 
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.0
-  scomm_openpgp:
-    git:
-      url: https://github.com/scomm-ai/scomm-openpgp.git
-      ref: 79ad3aaf7fc3d7846bbfa4f5b64270714957bf44
-      path: dart/scomm_openpgp
