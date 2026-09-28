@@ -72,7 +72,7 @@ abstract final class Families {
   static const pgp = 'pgp';
   static const smime = 'smime';
 
-  /// Legacy third envelope. Not accepted on the wire; ignored in capabilities.
+  /// Third envelope name. Not accepted on the wire; ignored in capabilities.
   static const pq = 'pq';
 }
 

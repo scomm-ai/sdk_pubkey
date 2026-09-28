@@ -16,7 +16,7 @@ import '../errors.dart';
 /// Vault create/open/sync/pairing/recovery live in
 /// `package:scomm_vault_client` ([KeyVault]). Host apps bind an opened
 /// vault's MSK through [attachMsk] / [mskLoader] so directory mutations can
-/// still be signed without embedding the legacy vault stack here.
+/// still be signed without embedding the vault stack here.
 class PubkeyRuntime {
   PubkeyRuntime._({
     required this.accountEmail,
@@ -129,7 +129,7 @@ PubkeyRuntime createPubkeyRuntime(
   String? mailerBaseUrl,
   // Ignored: vault host is `scomm_vault_client.VaultHostClient`.
   String? vaultBaseUrl,
-  // Ignored: legacy DeviceKeyStore removed with the vault split.
+  // Ignored: DeviceKeyStore removed with the vault split.
   Object? store,
   bool rfc9980Ready = true,
 }) {
