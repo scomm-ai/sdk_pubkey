@@ -51,9 +51,9 @@ String vaultRecordsSigningText({
 
 /// Signs with an Ed25519 MSK seed (the CKVF payload's `msk.current`).
 class MskSigner {
-  MskSigner(List<int> seed, {CkvfCrypto? crypto})
+  MskSigner(List<int> seed, {required CkvfCrypto crypto})
       : _seed = Uint8List.fromList(seed),
-        _crypto = crypto ?? defaultCkvfCrypto {
+        _crypto = crypto {
     if (seed.length != 32 && seed.length != 64) {
       throw ArgumentError.value(
         seed.length,
@@ -64,7 +64,10 @@ class MskSigner {
   }
 
   /// The current MSK of an unlocked CKVF vault.
-  factory MskSigner.fromVault(UnlockedVault vault, {CkvfCrypto? crypto}) {
+  factory MskSigner.fromVault(
+    UnlockedVault vault, {
+    required CkvfCrypto crypto,
+  }) {
     final current = vault.payload.msk.current;
     final privateKey = current.privateKey;
     if (privateKey is Map) {
@@ -206,10 +209,10 @@ Future<VaultAuthorization> deviceReadAuthorization({
   required String vaultId,
   required String operation,
   Map<String, dynamic> payload = const {},
-  CkvfCrypto? crypto,
+  required CkvfCrypto crypto,
   DateTime? now,
 }) async {
-  final c = crypto ?? defaultCkvfCrypto;
+  final c = crypto;
   final timestamp = (now ?? DateTime.now()).millisecondsSinceEpoch;
   final nonce = _nonce(c);
   final payloadHash = payloadSha256Hex(payload);
