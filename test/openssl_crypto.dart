@@ -357,3 +357,29 @@ final bool protocolDigestsInstalled = () {
   OpensslCryptoProvider.installDigests();
   return true;
 }();
+
+/// OpenPGP RFC 9980 signing key for the debug CLI. The secret stays in memory.
+class OpenPgpPqcSigningKey {
+  OpenPgpPqcSigningKey({required this.publicKey, required this.sign});
+
+  final Uint8List publicKey;
+  final ({Uint8List mldsa, Uint8List ed25519}) Function(Uint8List popBytes) sign;
+}
+
+OpenPgpPqcSigningKey generateOpenPgpPqcSigningKey(String userid) {
+  final generated = ScommOpenPgp.instance.generateKey(
+    userid: userid,
+    profile: OpenPgpKeyProfile.rfc9980MlDsa65,
+  );
+  final secret = Uint8List.fromList(generated.secret);
+  return OpenPgpPqcSigningKey(
+    publicKey: Uint8List.fromList(generated.public),
+    sign: (popBytes) {
+      final dual = ScommOpenPgp.instance.popSignComposite(
+        data: popBytes,
+        privateKey: secret,
+      );
+      return (mldsa: dual.mldsa, ed25519: dual.ed25519);
+    },
+  );
+}

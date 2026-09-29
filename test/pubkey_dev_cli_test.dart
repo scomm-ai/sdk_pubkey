@@ -26,6 +26,29 @@ void main() {
     );
   });
 
+  test('sign-pqc requires the armed MSK seed', () {
+    expect(
+      () => parseDevArgs([
+        '--url',
+        'http://127.0.0.1:3000',
+        '--email',
+        'a@example.com',
+        'sign-pqc',
+      ]),
+      throwsA(isA<DevUsage>()),
+    );
+    final args = parseDevArgs([
+      '--url',
+      'http://127.0.0.1:3000',
+      '--email',
+      'a@example.com',
+      '--msk',
+      'msk.seed',
+      'sign-pqc',
+    ]);
+    expect(args.command, 'sign-pqc');
+  });
+
   test('enroll requires an OTP and a seed output path', () {
     DevArgs parse() => parseDevArgs([
           '--url',

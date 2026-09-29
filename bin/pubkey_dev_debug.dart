@@ -18,9 +18,10 @@ Commands:
   arm       Redeem that challenge and arm the MSK
   enroll    Arm a new MSK with a mailbox OTP
   replace   Replace the armed MSK with a mailbox OTP
-  sign      Publish an Ed25519 verification key
+  sign      Publish an Ed25519 S/MIME verification key
+  sign-pqc  Publish an OpenPGP ML-DSA-65+Ed25519 verification key
   encrypt   Publish an X25519 key-agreement key
-  retire    Retire a key by its numeric key_id
+  retire    Retire a key by its scomm key_id (XXXX-XXXX)
   fetch     Fetch a verification key by its XXXX-XXXX id
 
 Flags:
@@ -28,7 +29,7 @@ Flags:
   --email     Mailbox address
   --otp       Mailbox OTP for arm, enroll, and replace
   --challenge Challenge id from request-otp (arm)
-  --msk       Raw 32-byte MSK seed (arm, sign, encrypt, retire)
+  --msk       Raw 32-byte MSK seed (arm, sign, sign-pqc, encrypt, retire)
   --msk-out   File for the new MSK seed (request-otp, enroll, replace)
   --key-id    Numeric id for retire, or XXXX-XXXX for fetch
 ''';
@@ -132,6 +133,7 @@ DevArgs parseDevArgs(List<String> args) {
     'enroll',
     'replace',
     'sign',
+    'sign-pqc',
     'encrypt',
     'retire',
     'fetch',
@@ -154,6 +156,7 @@ DevArgs parseDevArgs(List<String> args) {
   }
   if ((command == 'arm' ||
           command == 'sign' ||
+          command == 'sign-pqc' ||
           command == 'encrypt' ||
           command == 'retire') &&
       (mskIn == null || mskIn.isEmpty)) {
@@ -295,12 +298,14 @@ Future<Map<String, Object?>> _run(DevArgs args) async {
       return _armMsk(crypto, client, args, MailerOtpPurpose.replaceMsk);
     case 'sign':
       return _sign(crypto, client, args);
+    case 'sign-pqc':
+      return _signPqc(crypto, client, args);
     case 'encrypt':
       return _encrypt(crypto, client, args);
     case 'retire':
       final retired = await client.retireKey(
         email: args.email,
-        keyId: int.parse(args.keyId!),
+        keyId: args.keyId!,
         mskKey: await _loadMsk(crypto, args.mskIn!),
       );
       return _publicResult(retired);
@@ -419,6 +424,30 @@ Future<Map<String, Object?>> _sign(
   return {
     ..._publicResult(armed),
     'scomm_key_id': ScommKeyId.derive(spki),
+  };
+}
+
+Future<Map<String, Object?>> _signPqc(
+  CryptoProvider crypto,
+  PubkeyClient client,
+  DevArgs args,
+) async {
+  final signing = generateOpenPgpPqcSigningKey(args.email);
+  final armed = await client.setSigningKeyWithProof(
+    email: args.email,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+    compositePopSigner: signing.sign,
+    artifact: {
+      'family': Families.pgp,
+      'purpose': Purposes.verify,
+      'algorithm': OpenPgpAlgorithms.mldsa65Ed25519,
+      'public_material': encodeBase64Url(signing.publicKey),
+    },
+  );
+  return {
+    ..._publicResult(armed),
+    'scomm_key_id': ScommKeyId.derive(signing.publicKey),
+    'algorithm': OpenPgpAlgorithms.mldsa65Ed25519,
   };
 }
 

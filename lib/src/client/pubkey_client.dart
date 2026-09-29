@@ -276,7 +276,7 @@ class PubkeyClient {
 
   Future<dynamic> retireKey({
     required String email,
-    required int keyId,
+    required String keyId,
     required KeyRef mskKey,
   }) {
     return mutate(

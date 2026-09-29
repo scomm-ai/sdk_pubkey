@@ -12,6 +12,7 @@ abstract final class ErrorCodes {
   static const invalidPublicKey = 'invalid_public_key';
   static const invalidProofOfPossession = 'invalid_proof_of_possession';
   static const keyIdConflict = 'key_id_conflict';
+  static const scommKeyIdCollision = 'scomm_key_id_collision';
   static const capabilityMismatch = 'capability_mismatch';
   static const otpInvalid = 'otp_invalid';
   static const otpExpired = 'otp_expired';
