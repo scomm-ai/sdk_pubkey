@@ -44,14 +44,12 @@ Map<String, dynamic> protocolFamiliesFromPrimitives({
   }
 
   if (engines[EngineFlags.smime] == true) {
-    final smime = <String>[
-      SmimeAlgorithms.rsaOaepSha256,
-      SmimeAlgorithms.rsaPssSha256,
-    ];
-    if (agree.contains('x25519')) smime.add(SmimeAlgorithms.x25519);
-    if (agree.contains('p-256') || agree.contains('ecdh-p256')) {
-      smime.add('smime-ecdh-p256');
+    final smime = <String>[];
+    if (signs.contains('ed25519') ||
+        signs.contains(SmimeAlgorithms.ed25519)) {
+      smime.add(SmimeAlgorithms.ed25519);
     }
+    if (agree.contains('x25519')) smime.add(SmimeAlgorithms.x25519);
     final pqcReady = engines['smime_pqc'] == true;
     if (pqcReady &&
         (kems.contains('ml-kem-768') ||

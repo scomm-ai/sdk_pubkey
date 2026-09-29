@@ -62,6 +62,10 @@ void main() {
     );
     expect(
       client.smimeEngine.advertisedAlgorithms,
+      contains(SmimeAlgorithms.ed25519),
+    );
+    expect(
+      client.smimeEngine.advertisedAlgorithms,
       contains(SmimeAlgorithms.mlkem768X25519),
     );
   });

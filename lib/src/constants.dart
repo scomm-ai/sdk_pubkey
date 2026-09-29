@@ -139,18 +139,18 @@ abstract final class OpenPgpAlgorithms {
   }
 }
 
-/// Directory catalog names for S/MIME CMS (classical RSA/X25519 + hybrid PQC).
+/// Directory catalog names for S/MIME CMS (X25519, Ed25519, and hybrid PQC).
 abstract final class SmimeAlgorithms {
   static const rsaOaepSha256 = 'smime-rsa-oaep-sha256';
   static const x25519 = 'smime-x25519';
   static const rsaPssSha256 = 'smime-rsa-pss-sha256';
+  static const ed25519 = 'smime-ed25519';
   static const mlkem768X25519 = 'smime-mlkem768-x25519';
   static const mldsa65 = 'pqc-mldsa65';
 
   static const classicalAdvertised = [
-    rsaOaepSha256,
     x25519,
-    rsaPssSha256,
+    ed25519,
   ];
 
   static bool isPqcCatalogName(String? name) {

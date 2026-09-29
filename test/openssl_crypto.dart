@@ -338,6 +338,21 @@ OpensslCryptoProvider opensslCrypto() {
   return OpensslCryptoProvider();
 }
 
+/// AES-256-GCM decrypt for the local debug CLI. Ciphertext and tag are separate.
+Uint8List opensslAes256GcmDecrypt({
+  required List<int> key,
+  required List<int> nonce,
+  required List<int> ciphertext,
+  required List<int> tag,
+}) {
+  return nativeAes256GcmDecrypt(
+    key: key,
+    nonce: nonce,
+    ciphertext: ciphertext,
+    tag: tag,
+  );
+}
+
 final bool protocolDigestsInstalled = () {
   OpensslCryptoProvider.installDigests();
   return true;

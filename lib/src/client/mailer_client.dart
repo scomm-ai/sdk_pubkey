@@ -151,7 +151,8 @@ class MailerClient {
   ///
   /// [mskPublicKey] is required for `enroll` and `replace_msk`: the grant
   /// names that key (`msk_jkt`) and can arm no other.
-  Future<void> requestOtp({
+  /// Returns the challenge id. The OTP itself is not in the response.
+  Future<String> requestOtp({
     required String email,
     required String purpose,
     List<int>? mskPublicKey,
@@ -177,7 +178,9 @@ class MailerClient {
         'Mailer challenge response did not return an id',
       );
     }
-    _otpChallengeIds['$sha:$purpose'] = result['id'] as String;
+    final challengeId = result['id'] as String;
+    _otpChallengeIds['$sha:$purpose'] = challengeId;
+    return challengeId;
   }
 
   static void _requireArmingKey(String purpose, List<int>? mskPublicKey) {

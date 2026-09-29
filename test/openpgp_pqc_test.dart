@@ -20,7 +20,7 @@ void main() {
       expect(pgp, isNot(contains('openpgp-mlkem768-x25519')));
       expect(pgp, isNot(contains('openpgp-mldsa65-ed25519')));
       final smime = (mapped['families'] as Map)['smime'] as List;
-      expect(smime, contains('smime-rsa-oaep-sha256'));
+      expect(smime, contains('smime-ed25519'));
       expect(smime, contains('smime-x25519'));
       expect(smime, isNot(contains('smime-mlkem768-x25519')));
     });

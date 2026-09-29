@@ -164,7 +164,7 @@ void main() {
     test('unsupported families yield null (no keys.first fallback)', () {
       final selected = dualPublishDoc().selectBestEncryptionKey({
         'families': {
-          'smime': ['smime-rsa-oaep-sha256'],
+          'smime': ['smime-x25519'],
         },
       });
       expect(selected, isNull);
