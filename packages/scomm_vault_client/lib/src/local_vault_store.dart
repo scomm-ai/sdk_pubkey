@@ -19,7 +19,20 @@ abstract final class LocalVaultKeys {
   /// `generation_hash` of the container last confirmed stored on the host.
   static const syncedHash = 'synced_hash';
 
-  static const all = [container, deviceKek, deviceSlotId, syncedHash];
+  /// Container JSON of that same generation, used as the merge base.
+  static const syncedContainer = 'synced_container';
+
+  /// Base64url public key of the MSK this device last accepted.
+  static const pinnedMsk = 'pinned_msk';
+
+  static const all = [
+    container,
+    deviceKek,
+    deviceSlotId,
+    syncedHash,
+    syncedContainer,
+    pinnedMsk,
+  ];
 }
 
 class MemoryLocalVaultStore implements LocalVaultStore {

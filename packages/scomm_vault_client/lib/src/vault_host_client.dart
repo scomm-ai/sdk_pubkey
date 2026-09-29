@@ -7,7 +7,7 @@ import 'package:dio/dio.dart';
 
 import 'authorization.dart';
 import 'errors.dart';
-import 'oprf/identity_voprf.dart';
+import 'mailbox_identity.dart';
 import 'signing.dart';
 
 /// A stored CKVF generation (`record` of a vault read).
@@ -142,32 +142,9 @@ class VaultHostClient {
   final String _base;
   final Dio _dio;
 
-  /// `GET /v1/id/oprf/key`.
-  Future<Uint8List> identityOprfKey() async {
-    final body = await _get('/v1/id/oprf/key');
-    return _bytes(body, 'public_key', 32);
-  }
-
-  /// Runs the identity OPRF for [canonicalMailbox] and verifies the proof.
-  /// Pass [publicKey] from configuration to pin the host key; otherwise the
-  /// key is fetched from the same host.
-  Future<String> identityId(
-    String canonicalMailbox, {
-    List<int>? publicKey,
-  }) async {
-    final key = publicKey ?? await identityOprfKey();
-    final state = identityBlind(utf8.encode(canonicalMailbox));
-    final body = await _post('/v1/id/oprf/evaluate', {
-      'blind': _b64(state.blinded),
-    });
-    final out = identityFinalize(
-      state,
-      _bytes(body, 'evaluation', 32),
-      _bytes(body, 'proof', 64),
-      key,
-    );
-    return identityIdFromOutput(out);
-  }
+  /// Mailbox SHA-256. Computed locally; the vault host has no identity OPRF.
+  String identityId(String canonicalMailbox) =>
+      mailboxIdentityId(canonicalMailbox);
 
   /// `GET /v1/pw-oprf/keys`.
   Future<PepperKeySet> pepperKeys() async {
@@ -323,6 +300,7 @@ class VaultHostClient {
   Future<Map<String, dynamic>> openVault({
     required String identityId,
     required String vaultId,
+    required String mailboxSha256,
     required String otpGrant,
     required Map<String, dynamic> msk,
     required Map<String, dynamic> mskProof,
@@ -330,6 +308,7 @@ class VaultHostClient {
       _post('/v1/vault/open', {
         'identity_id': identityId,
         'vault_id': vaultId,
+        'mailbox_sha256': mailboxSha256,
         'otp_grant': otpGrant,
         'msk': msk,
         'msk_proof': mskProof,
@@ -339,12 +318,14 @@ class VaultHostClient {
   Future<Map<String, dynamic>> rebindMsk({
     required String identityId,
     required String vaultId,
+    required String mailboxSha256,
     required String otpGrant,
     required Map<String, dynamic> msk,
     required Map<String, dynamic> mskProof,
   }) =>
       _post('/v1/vault/$vaultId/msk', {
         'identity_id': identityId,
+        'mailbox_sha256': mailboxSha256,
         'otp_grant': otpGrant,
         'msk': msk,
         'msk_proof': mskProof,

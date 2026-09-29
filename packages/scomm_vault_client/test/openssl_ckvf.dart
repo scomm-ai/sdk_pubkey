@@ -89,4 +89,14 @@ class OpensslCkvfCrypto implements CkvfCrypto {
     List<int> signature,
   ) async =>
       nativeEd25519Verify(publicKey, message, signature);
+
+  @override
+  Future<({Uint8List publicKey, Uint8List privateKey})> x25519Generate() async {
+    final privateKey = nativeRandom(32);
+    return (publicKey: nativeX25519Public(privateKey), privateKey: privateKey);
+  }
+
+  @override
+  Future<Uint8List> x25519(List<int> privateKey, List<int> publicKey) async =>
+      nativeX25519Dh(privateKey, publicKey);
 }

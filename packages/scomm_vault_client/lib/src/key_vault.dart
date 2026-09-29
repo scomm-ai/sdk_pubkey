@@ -102,6 +102,9 @@ class KeyVault {
   UnlockedVault? _vault;
   Future<void> _lock = Future.value();
 
+  /// Conflicts from the last [pull], [push], or [sync].
+  List<MergeConflict> lastConflicts = const [];
+
   bool get isOpen => _vault != null;
 
   UnlockedVault get vault =>
@@ -364,9 +367,9 @@ class KeyVault {
           {String reason = 'user-requested'}) =>
       commit((v) => deletePrivateKey(v, crypto, absoluteKeyId, reason: reason));
 
-  /// D8 signing retention: retire a sign-only key and delete its private
-  /// material (tombstone kept). Decryption / dual-purpose keys keep their
-  /// private key — call [retire] alone for those.
+  /// Retire a signing key and optionally point the preferred signing key at
+  /// [newPreferredId]. Does not destroy private material. Call [deletePrivate]
+  /// for that, as a separate authorized step.
   Future<void> rotateSigningKey(
     String absoluteKeyId, {
     String? newPreferredId,
@@ -379,18 +382,9 @@ class KeyVault {
           throw VaultClientException(
               'key_not_found', 'no key $absoluteKeyId');
         }
-        final purposes = key.purpose.map((p) => p.toLowerCase()).toSet();
-        final signOnly = purposes.contains('sign') &&
-            !purposes.contains('encrypt') &&
-            !purposes.contains('decrypt') &&
-            !purposes.contains('key_agreement');
         var next = v;
         if (key.status == 'active') {
           next = await retireKey(next, crypto, absoluteKeyId);
-        }
-        if (signOnly && getKey(next, absoluteKeyId)?.privateKey != null) {
-          next = await deletePrivateKey(next, crypto, absoluteKeyId,
-              reason: reason);
         }
         if (newPreferredId != null) {
           next = await setPreferredKey(next, crypto,
@@ -592,7 +586,7 @@ class KeyVault {
         payload: exported.payload,
         vek: v.vek,
       );
-      final merged = await _mergeNormalized(v, incoming);
+      final merged = await _mergeNormalized(v, incoming, null);
       conflicts = merged.conflicts;
       return merged.vault;
     });
@@ -625,13 +619,22 @@ class KeyVault {
           await store.write(LocalVaultKeys.syncedHash, record.generationHash);
           return false;
         }
+        if (record.generation < await _syncedGeneration()) {
+          throw VaultClientException(
+            'generation_rollback',
+            'the host returned an older generation',
+          );
+        }
         final head = await _openRecord(record, b.identityId);
+        await _acceptMsk(head);
         final synced = await store.read(LocalVaultKeys.syncedHash);
         if (synced == local.container.generationHash) {
-          await store.write(LocalVaultKeys.syncedHash, record.generationHash);
+          await _markSynced(head);
           await _persist(head);
         } else {
-          await _persist((await _mergeNormalized(head, local)).vault);
+          final merged = await _mergeNormalized(head, local, await _base());
+          lastConflicts = merged.conflicts;
+          await _persist(merged.vault);
         }
         return true;
       });
@@ -654,7 +657,7 @@ class KeyVault {
               signer: signer,
               licenseDeviceId: b.licenseDeviceId,
             );
-            await store.write(LocalVaultKeys.syncedHash, hash);
+            await _markSynced(local);
             return;
           } on VaultClientException catch (e) {
             if (e.code != 'generation_conflict') rethrow;
@@ -681,8 +684,18 @@ class KeyVault {
                   previousGenerationHash: record.generationHash));
               continue;
             }
+            if (record.generation < await _syncedGeneration()) {
+              throw VaultClientException(
+                'generation_rollback',
+                'the host returned an older generation',
+              );
+            }
             final head = await _openRecord(record, b.identityId);
-            await _persist((await _mergeNormalized(head, local)).vault);
+            await _acceptMsk(head);
+            final merged =
+                await _mergeNormalized(head, local, await _base());
+            lastConflicts = merged.conflicts;
+            await _persist(merged.vault);
           }
         }
         throw VaultClientException(
@@ -787,10 +800,55 @@ class KeyVault {
 
   /// Unions map-valued `priv:scomm.*` extensions (entries from [local] win)
   /// so the SPEC §12 merge sees no extension conflict for app metadata.
+  Future<int> _syncedGeneration() async {
+    final raw = await store.read(LocalVaultKeys.syncedContainer);
+    if (raw == null) return 0;
+    try {
+      final decoded = jsonDecode(raw);
+      final generation = decoded is Map ? decoded['generation'] : null;
+      if (generation is int && generation > 0) return generation;
+    } catch (_) {}
+    return 0;
+  }
+
+  Future<UnlockedVault?> _base() async {
+    final raw = await store.read(LocalVaultKeys.syncedContainer);
+    if (raw == null) return null;
+    try {
+      return await _openWithDeviceSlot(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _markSynced(UnlockedVault v) async {
+    await store.write(LocalVaultKeys.syncedHash, v.container.generationHash);
+    await store.write(
+      LocalVaultKeys.syncedContainer,
+      serializeContainer(v.container),
+    );
+    await store.write(
+      LocalVaultKeys.pinnedMsk,
+      v.payload.msk.current.publicKey,
+    );
+  }
+
+  Future<void> _acceptMsk(UnlockedVault opened) async {
+    final pinned = await store.read(LocalVaultKeys.pinnedMsk);
+    final current = opened.payload.msk.current.publicKey;
+    if (pinned != null && pinned != current) {
+      throw VaultClientException(
+        'msk_changed',
+        'the stored MSK changed; confirm it with Discovery before syncing',
+      );
+    }
+  }
+
   Future<({UnlockedVault vault, List<MergeConflict> conflicts})>
       _mergeNormalized(
     UnlockedVault head,
     UnlockedVault local,
+    UnlockedVault? base,
   ) {
     final ids = {
       for (final e in [...head.payload.extensions, ...local.payload.extensions])
@@ -814,6 +872,8 @@ class KeyVault {
       UnlockedVault(
           container: local.container, payload: localPayload, vek: local.vek),
       crypto,
+      null,
+      base,
     );
   }
 
@@ -872,18 +932,13 @@ Future<void> verifyRecordSignature(
     generation: record.generation,
     generationHash: record.generationHash,
   ));
-  final msk = opened.payload.msk;
-  for (final pk in [
-    msk.current.publicKey,
-    ...msk.history.map((h) => h.publicKey)
-  ]) {
-    if (await verifyArmedMsk(
-      publicKey: base64urlToBytes(pk),
-      message: text,
-      signature: record.mskSignature,
-    )) {
-      return;
-    }
+  final pk = opened.payload.msk.current.publicKey;
+  if (await verifyArmedMsk(
+    publicKey: base64urlToBytes(pk),
+    message: text,
+    signature: record.mskSignature,
+  )) {
+    return;
   }
   throw VaultClientException(
       'invalid_signature', 'record msk_signature is invalid');

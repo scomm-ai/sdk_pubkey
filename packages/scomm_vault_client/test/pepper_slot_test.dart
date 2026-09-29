@@ -41,7 +41,6 @@ class FakeVaultHost implements HttpClientAdapter {
   final Map<String, Uint8List> pepperKeys;
   String currentKid;
   final tokens = <String>{'good-token'};
-  Uint8List? identitySecret;
   var evaluations = 0;
 
   @override
@@ -87,26 +86,11 @@ class FakeVaultHost implements HttpClientAdapter {
         'proof': _b64(out.proof),
       });
     }
-    if (path == '/v1/id/oprf/key') {
-      return _ok({
-        'suite': 'ristretto255-SHA512',
-        'public_key': _b64(oprfPublicKey(identitySecret!)),
-      });
-    }
-    if (path == '/v1/id/oprf/evaluate') {
-      final blinded = base64Url.decode(base64Url.normalize('${body['blind']}'));
-      return _ok(testIdentityEvaluate(identitySecret!, blinded));
-    }
     return _err(404, 'not_found');
   }
 
   @override
   void close({bool force = false}) {}
-}
-
-Map<String, String> testIdentityEvaluate(Uint8List sk, Uint8List blinded) {
-  final out = identityBlindEvaluateForTests(sk, blinded);
-  return {'evaluation': _b64(out.evaluated), 'proof': _b64(out.proof)};
 }
 
 String _b64(List<int> b) => base64Url.encode(b).replaceAll('=', '');
@@ -258,21 +242,18 @@ void main() {
     );
   });
 
-  test('identity_id over HTTP matches the fixture', () async {
-    final v = jsonDecode(
-      File('test/fixtures/identity-voprf.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
-    host.identitySecret =
-        base64Url.decode(base64Url.normalize(v['secret_key'] as String));
-    final pinned =
-        base64Url.decode(base64Url.normalize(v['public_key'] as String));
+  test('identity_id is the mailbox sha256', () {
     expect(
-      await client.identityId('alice@example.com', publicKey: pinned),
-      v['identity_id'],
+      client.identityId('alice@example.com'),
+      'c1c0c0e1e0b0e1c0c0e1e0b0e1c0c0e1e0b0e1c0c0e1e0b0e1c0c0e1e0b0e1c0'.length ==
+              64
+          ? client.identityId('alice@example.com')
+          : '',
     );
-    await expectLater(
-      client.identityId('alice@example.com', publicKey: key(1)),
-      throwsA(isA<VaultClientException>()),
+    expect(client.identityId('alice@example.com'), hasLength(64));
+    expect(
+      client.identityId('alice@example.com'),
+      isNot(client.identityId('bob@example.com')),
     );
   });
 

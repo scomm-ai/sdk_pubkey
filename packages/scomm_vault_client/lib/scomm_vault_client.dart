@@ -11,7 +11,7 @@ export 'src/errors.dart';
 export 'src/host_pepper_oprf.dart';
 export 'src/key_vault.dart';
 export 'src/local_vault_store.dart';
-export 'src/oprf/identity_voprf.dart';
+export 'src/mailbox_identity.dart';
 export 'src/oprf/poprf.dart';
 export 'src/pairing/pairing_flow.dart';
 export 'src/pairing/pairing_protocol.dart'

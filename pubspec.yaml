@@ -13,7 +13,7 @@ dependencies:
   ckvf:
     git:
       url: https://github.com/scomm-public/ckvf.git
-      ref: cad432c6209edbe1d53a656a07b1447127cd735c
+      ref: 18177fa225207062cb578ee66f7e2d6c4ba30d4a
       path: packages/dart
   scomm_vault_client:
     path: packages/scomm_vault_client
