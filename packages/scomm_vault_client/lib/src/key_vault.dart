@@ -10,6 +10,7 @@ import 'host_pepper_oprf.dart';
 import 'local_vault_store.dart';
 import 'signing.dart';
 import 'vault_host_client.dart';
+import 'vault_sync.dart';
 
 /// App metadata for devices, by `slot_id` of their device slot.
 const String devicesExtensionId = 'priv:scomm.devices';
@@ -98,6 +99,10 @@ class KeyVault {
   final LocalVaultStore store;
   final CkvfCrypto crypto;
   VaultHostBinding? binding;
+
+  /// User-controlled generation store. When set, [pull] and [push] use it
+  /// instead of [binding].
+  VaultSyncStore? syncStore;
 
   UnlockedVault? _vault;
   Future<void> _lock = Future.value();
@@ -531,6 +536,12 @@ class KeyVault {
     await replaceMsk(newMskPublic);
   }
 
+  /// Wraps the current VEK with [secret] in a `password-argon2id` slot.
+  /// No vault host and no pepper evaluation.
+  Future<void> addOfflineSecret(String secret) => commit((v) async {
+        return addUnlockSlot(v, crypto, secret);
+      });
+
   /// Adds a `recovery-code-oprf-argon2id` slot and returns the code to show
   /// once. Earlier recovery-code slots are removed.
   Future<String> addRecoveryCode({
@@ -709,6 +720,7 @@ class KeyVault {
   /// replaces the local copy; otherwise the local copy is merged onto it.
   /// Returns whether the local vault changed.
   Future<bool> pull() => _locked(() async {
+        if (syncStore != null) return _pullSync();
         final b = binding;
         if (b == null) return false;
         final read = await b.host.currentRecord(
@@ -747,6 +759,10 @@ class KeyVault {
   /// several generations), merges onto a head another device wrote, or
   /// restarts at generation 1 on an empty host.
   Future<void> push() => _locked(() async {
+        if (syncStore != null) {
+          await _pushSync();
+          return;
+        }
         final b = binding;
         if (b == null) return;
         for (var attempt = 0; attempt < 4; attempt++) {
@@ -835,12 +851,126 @@ class KeyVault {
       });
 
   Future<void> _pushQuietly() async {
-    if (binding == null) return;
+    if (binding == null && syncStore == null) return;
     try {
       await push();
     } on VaultClientException catch (e) {
       if (e.code != 'network_error') rethrow;
     }
+  }
+
+  Future<bool> _pullSync() async {
+    final remote = syncStore!;
+    final head = await remote.getHead(vaultId);
+    if (head == null) return false;
+    if (head.vaultId != vaultId) {
+      throw VaultClientException('sync_head', 'vault id mismatch');
+    }
+    final local = vault;
+    if (head.generationHash == local.container.generationHash) {
+      await store.write(LocalVaultKeys.syncedHash, head.generationHash);
+      return false;
+    }
+    if (head.generation < await _syncedGeneration()) {
+      throw VaultClientException(
+        'generation_rollback',
+        'sync storage returned an older generation',
+      );
+    }
+    final raw = await remote.getGeneration(vaultId, head.generation);
+    if (raw == null) {
+      throw VaultClientException('sync_missing', 'head generation is missing');
+    }
+    final opened = await _openWithDeviceSlot(raw);
+    if (opened.container.generationHash != head.generationHash) {
+      throw VaultClientException(
+        'sync_tamper',
+        'generation hash does not match the head',
+      );
+    }
+    final synced = await store.read(LocalVaultKeys.syncedHash);
+    if (synced == local.container.generationHash) {
+      await _markSynced(opened);
+      await _persist(opened);
+    } else {
+      final merged = await _mergeNormalized(opened, local, await _base());
+      lastConflicts = merged.conflicts;
+      await _persist(merged.vault);
+    }
+    return true;
+  }
+
+  Future<void> _pushSync() async {
+    final remote = syncStore!;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      final local = vault;
+      final hash = local.container.generationHash;
+      if (await store.read(LocalVaultKeys.syncedHash) == hash) return;
+      final head = await remote.getHead(vaultId);
+      if (head != null && head.generationHash == hash) {
+        await _markSynced(local);
+        return;
+      }
+      if (head != null &&
+          head.generation < await _syncedGeneration() &&
+          head.generationHash != local.container.previousGenerationHash) {
+        throw VaultClientException(
+          'generation_rollback',
+          'sync storage returned an older generation',
+        );
+      }
+      final parentMatches = head == null
+          ? local.container.generation == 1
+          : local.container.previousGenerationHash == head.generationHash;
+      if (parentMatches) {
+        await remote.putIfAbsent(
+          vaultId,
+          local.container.generation,
+          serializeContainer(local.container),
+        );
+        final ok = await remote.compareAndSwapHead(
+          next: VaultHead(
+            vaultId: vaultId,
+            generation: local.container.generation,
+            generationHash: hash,
+          ),
+          expectedHash: head?.generationHash,
+        );
+        if (!ok) continue;
+        await _markSynced(local);
+        return;
+      }
+      if (head == null) {
+        await _persist(await rechain(
+          local,
+          crypto,
+          generation: 1,
+          previousGenerationHash: null,
+        ));
+        continue;
+      }
+      final raw = await remote.getGeneration(vaultId, head.generation);
+      if (raw == null) {
+        throw VaultClientException('sync_missing', 'head generation is missing');
+      }
+      if (head.generationHash == await store.read(LocalVaultKeys.syncedHash)) {
+        await _persist(await rechain(
+          local,
+          crypto,
+          generation: head.generation + 1,
+          previousGenerationHash: head.generationHash,
+        ));
+        continue;
+      }
+      final opened = await _openWithDeviceSlot(raw);
+      final merged = await _mergeNormalized(opened, local, await _base());
+      lastConflicts = merged.conflicts;
+      await _persist(merged.vault);
+    }
+    throw VaultClientException(
+      'generation_conflict',
+      'the sync head kept moving; try again',
+    );
   }
 
   // -------------------------------------------------------------------------

@@ -11,6 +11,7 @@ mod oprf;
 mod pairing;
 mod signing;
 mod vault_host_client;
+mod vault_sync;
 
 pub use authorization::{parse_grant_v1, GrantV1Claims, VaultAuthorization};
 pub use errors::VaultClientError;
@@ -41,6 +42,7 @@ pub use vault_host_client::{
     PepperEvaluation, PepperKeyInfo, PepperKeySet, VaultHostApi, VaultHostClient, VaultRead,
     VaultRecord,
 };
+pub use vault_sync::{FolderVaultSync, VaultHead, VaultSyncStore};
 
 // Re-export CKVF types apps commonly need alongside this client.
 pub use scomm_vault::{

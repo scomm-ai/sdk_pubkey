@@ -1,6 +1,7 @@
 /// Scomm.AI vault client: a local-first CKVF [KeyVault], device pairing,
-/// identity OPRF, pepper POPRF, and vault-host routes. Container format and
-/// slots live in `package:ckvf`.
+/// and optional generation sync to storage the user controls. Container
+/// format and slots live in `package:ckvf`. A vault host is not required
+/// to unlock a container that has an offline slot.
 library;
 
 export 'package:ckvf/ckvf.dart' show PepperKey, PepperOprf;
@@ -18,3 +19,4 @@ export 'src/pairing/pairing_protocol.dart'
     show PairingBox, PairingProtocol, PairingUri, pairingTypedPasswordLength;
 export 'src/signing.dart';
 export 'src/vault_host_client.dart';
+export 'src/vault_sync.dart';
