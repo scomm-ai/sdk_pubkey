@@ -225,6 +225,13 @@ class KeyVault {
         return true;
       });
 
+  /// Installs an already unlocked container for this process. The next
+  /// commit writes [store]. Used by the CLI when the container was opened
+  /// with a password rather than this device's slot.
+  void attachOpened(UnlockedVault opened) {
+    _vault = opened;
+  }
+
   /// Takes over [opened] (from pairing, recovery, or a backup file): adds a
   /// device slot for this device and persists. Pass [storedOnHost] when
   /// [opened] is the host's current generation.

@@ -153,3 +153,151 @@ Future<VaultContainer> parseContainer(String json) async {
   }
   return VaultContainer.fromJson(Map<String, dynamic>.from(value));
 }
+
+/// WebDAV (or any HTTP server that honors `If-None-Match` and `If-Match`)
+/// for the same generation objects as [FolderVaultSync].
+class WebDavVaultSync implements VaultSyncStore {
+  WebDavVaultSync(
+    Uri base, {
+    this.headers = const {},
+    HttpClient? client,
+  })  : _root = _withSlash(base),
+        _client = client ?? HttpClient();
+
+  final Uri _root;
+  final Map<String, String> headers;
+  final HttpClient _client;
+
+  static Uri _withSlash(Uri base) {
+    final text = base.toString();
+    return Uri.parse(text.endsWith('/') ? text : '$text/');
+  }
+
+  String _safe(String vaultId) {
+    final safe = vaultId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+    if (safe.isEmpty || safe != vaultId) {
+      throw VaultClientException('sync_path', 'vault id');
+    }
+    return safe;
+  }
+
+  Uri _uri(String vaultId, String name) => _root.resolve('${_safe(vaultId)}/$name');
+
+  Future<HttpClientResponse> _send(
+    String method,
+    Uri uri, {
+    String? body,
+    Map<String, String> extra = const {},
+  }) async {
+    final request = await _client.openUrl(method, uri);
+    headers.forEach(request.headers.set);
+    extra.forEach(request.headers.set);
+    if (body != null) {
+      request.headers.contentType = ContentType.json;
+      request.add(utf8.encode(body));
+    }
+    return request.close();
+  }
+
+  Future<String> _readBody(HttpClientResponse response) {
+    return response.transform(utf8.decoder).join();
+  }
+
+  @override
+  Future<VaultHead?> getHead(String vaultId) async {
+    final response = await _send('GET', _uri(vaultId, 'head.json'));
+    if (response.statusCode == 404) {
+      await response.drain<void>();
+      return null;
+    }
+    final body = await _readBody(response);
+    if (response.statusCode != 200) {
+      throw VaultClientException('sync_head', 'head HTTP ${response.statusCode}');
+    }
+    return VaultHead.parse(body);
+  }
+
+  @override
+  Future<String?> getGeneration(String vaultId, int generation) async {
+    final response = await _send('GET', _uri(vaultId, 'g/$generation.json'));
+    if (response.statusCode == 404) {
+      await response.drain<void>();
+      return null;
+    }
+    final body = await _readBody(response);
+    if (response.statusCode != 200) {
+      throw VaultClientException(
+        'sync_object',
+        'generation HTTP ${response.statusCode}',
+      );
+    }
+    return body;
+  }
+
+  @override
+  Future<void> putIfAbsent(
+    String vaultId,
+    int generation,
+    String containerJson,
+  ) async {
+    final uri = _uri(vaultId, 'g/$generation.json');
+    final response = await _send(
+      'PUT',
+      uri,
+      body: containerJson,
+      extra: {HttpHeaders.ifNoneMatchHeader: '*'},
+    );
+    if (response.statusCode == 201 || response.statusCode == 204) {
+      await response.drain<void>();
+      return;
+    }
+    await response.drain<void>();
+    if (response.statusCode != 412) {
+      throw VaultClientException(
+        'sync_object',
+        'put generation HTTP ${response.statusCode}',
+      );
+    }
+    final existing = await getGeneration(vaultId, generation);
+    if (existing != containerJson) {
+      throw VaultClientException(
+        'sync_tamper',
+        'generation $generation already has different bytes',
+      );
+    }
+  }
+
+  @override
+  Future<bool> compareAndSwapHead({
+    required VaultHead next,
+    required String? expectedHash,
+  }) async {
+    final current = await getHead(next.vaultId);
+    if (current?.generationHash != expectedHash) return false;
+    if (current != null && current.vaultId != next.vaultId) return false;
+    final extra = <String, String>{
+      if (expectedHash == null)
+        HttpHeaders.ifNoneMatchHeader: '*'
+      else
+        HttpHeaders.ifMatchHeader: '"$expectedHash"',
+    };
+    final response = await _send(
+      'PUT',
+      _uri(next.vaultId, 'head.json'),
+      body: jsonEncode(next.toJson()),
+      extra: extra,
+    );
+    final ok = response.statusCode == 200 ||
+        response.statusCode == 201 ||
+        response.statusCode == 204;
+    await response.drain<void>();
+    if (response.statusCode == 412) return false;
+    if (!ok) {
+      throw VaultClientException(
+        'sync_head',
+        'cas head HTTP ${response.statusCode}',
+      );
+    }
+    return true;
+  }
+}
