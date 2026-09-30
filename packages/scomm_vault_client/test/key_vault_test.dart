@@ -219,8 +219,7 @@ void main() {
     expect((env['payload'] as Map)['device_id'], 'dev-1');
   });
 
-  test('rotateSigningKey retires and deletes sign-only private material',
-      () async {
+  test('rotateSigningKey retires and keeps private material', () async {
     final v = await newVault();
     final oldId = await addKey(v);
     final pair = await crypto.ed25519Generate();
@@ -234,8 +233,208 @@ void main() {
     );
     await v.rotateSigningKey(oldId, newPreferredId: newId, family: 'smime');
     expect(v.key(oldId)!.status, 'retired');
-    expect(v.key(oldId)!.privateKey, isNull);
+    expect(v.key(oldId)!.privateKey, isNotNull);
     expect(v.preferredKey('smime', 'sign'), newId);
-    expect(v.vault.payload.tombstones, isNotEmpty);
+    expect(v.vault.payload.tombstones, isEmpty);
+  });
+
+  test('importKey rejects pkcs8 when publicKey equals privateKey', () async {
+    final v = await newVault();
+    final secret = List<int>.filled(48, 7);
+    await expectLater(
+      v.importKey(
+        family: 'smime',
+        encoding: 'pkcs8',
+        algorithm: 'unknown',
+        purpose: const ['encrypt'],
+        privateKey: secret,
+        publicKey: secret,
+      ),
+      throwsA(isA<VaultClientException>()
+          .having((e) => e.code, 'code', 'invalid_public_key')),
+    );
+  });
+
+  test('revokeDevice drops the slot and pepper slots, keeps this device',
+      () async {
+    final fast = _FastKdfCrypto();
+    final store = MemoryLocalVaultStore();
+    final v = KeyVault(store, crypto: fast);
+    await v.create(
+      email: 'alice@example.com',
+      device: const VaultDevice(deviceId: 'dev-laptop', name: 'Laptop'),
+    );
+    final mySlot = (await store.read(LocalVaultKeys.deviceSlotId))!;
+    final other = await fast.x25519Generate();
+    final otherSlotId = bytesToBase64url(fast.randomBytes(16));
+    final pepper = _FakePepperHost({'k1': List.filled(32, 0x11)});
+    final pepperKey = PepperKey(
+      kid: 'k1',
+      publicKey: Uint8List.fromList(List.filled(32, 0x42)),
+    );
+
+    await v.commit((current) async {
+      final passwordSlot = await wrapPepperSlot(
+        fast,
+        vaultId: current.container.vaultId,
+        vek: current.vek,
+        method: passwordOprfMethod,
+        secret: 'backup-password',
+        pepper: pepper,
+        key: pepperKey,
+        kdf: pepperMinArgon2id,
+      );
+      final recoverySlot = await wrapPepperSlot(
+        fast,
+        vaultId: current.container.vaultId,
+        vek: current.vek,
+        method: recoveryCodeOprfMethod,
+        secret: generateRecoveryCode(fast),
+        pepper: pepper,
+        key: pepperKey,
+        kdf: pepperMinArgon2id,
+      );
+      final hpke = await wrapDeviceHpkeSlot(
+        fast,
+        vaultId: current.container.vaultId,
+        vek: current.vek,
+        recipientPublicKey: other.publicKey,
+        slotId: otherSlotId,
+      );
+      final devices = _extensionData(current.payload, devicesExtensionId);
+      devices[otherSlotId] = {
+        'device_id': 'dev-phone',
+        'name': 'Phone',
+        'added_at': rfc3339(null),
+        'public_key': bytesToBase64url(other.publicKey),
+      };
+      final withDevices = UnlockedVault(
+        container: current.container,
+        payload: _withExtensions(
+          current.payload,
+          _replaceExtension(
+            current.payload.extensions,
+            devicesExtensionId,
+            devices,
+          ),
+        ),
+        vek: current.vek,
+      );
+      return commitUnlockSlots(withDevices, fast, [
+        ...current.container.unlockSlots,
+        passwordSlot,
+        recoverySlot,
+        hpke,
+      ]);
+    }, push: false);
+
+    expect(
+      v.vault.container.unlockSlots.map((s) => s.method),
+      containsAll([
+        passwordOprfMethod,
+        recoveryCodeOprfMethod,
+        deviceHpkeMethod,
+      ]),
+    );
+    final oldMsk = v.mskPublicKey;
+
+    var replaceCalled = false;
+    await v.revokeDevice(otherSlotId, replaceMsk: (pk) async {
+      replaceCalled = true;
+      expect(pk, hasLength(32));
+      expect(pk, isNot(oldMsk));
+    });
+
+    expect(replaceCalled, isTrue);
+    expect(v.vault.container.unlockSlots.map((s) => s.slotId), [mySlot]);
+    expect(
+      v.vault.container.unlockSlots.any((s) =>
+          s.method == passwordOprfMethod ||
+          s.method == recoveryCodeOprfMethod ||
+          s.slotId == otherSlotId),
+      isFalse,
+    );
+    expect(v.devices.map((d) => d.deviceId), ['dev-laptop']);
+    expect(v.mskPublicKey, isNot(oldMsk));
   });
 }
+
+/// Real OpenSSL crypto with Argon2id forced to the test floor.
+class _FastKdfCrypto extends OpensslCkvfCrypto {
+  @override
+  Future<Uint8List> argon2id({
+    required List<int> password,
+    required List<int> salt,
+    required int m,
+    required int t,
+    required int p,
+    required int keyLength,
+  }) =>
+      super.argon2id(
+        password: password,
+        salt: salt,
+        m: testArgon2id.m,
+        t: testArgon2id.t,
+        p: testArgon2id.p,
+        keyLength: keyLength,
+      );
+}
+
+class _FakePepperHost implements PepperOprf {
+  _FakePepperHost(this.serverKeys);
+  final Map<String, List<int>> serverKeys;
+
+  @override
+  Future<Uint8List> finalize({
+    required String vaultId,
+    required String slotId,
+    required String kid,
+    required Uint8List publicKey,
+    required Uint8List secret,
+  }) async {
+    final key = serverKeys[kid];
+    if (key == null) throw StateError('unknown kid');
+    return Uint8List.fromList(
+      List<int>.generate(
+        64,
+        (i) => key[i % key.length] ^ secret[i % secret.length],
+      ),
+    );
+  }
+}
+
+// Test-only mirrors of key_vault private helpers for building extension maps.
+Map<String, dynamic> _extensionData(VaultPayload payload, String id) {
+  for (final e in payload.extensions) {
+    if (e.id == id && e.data is Map) {
+      return Map<String, dynamic>.from(e.data as Map);
+    }
+  }
+  return <String, dynamic>{};
+}
+
+List<Extension> _replaceExtension(
+  List<Extension> extensions,
+  String id,
+  Map<String, dynamic> data,
+) {
+  final out = [
+    for (final e in extensions)
+      if (e.id != id) e
+  ];
+  if (data.isNotEmpty) out.add(Extension(id: id, critical: false, data: data));
+  out.sort((a, b) => a.id.compareTo(b.id));
+  return out;
+}
+
+VaultPayload _withExtensions(VaultPayload p, List<Extension> extensions) =>
+    VaultPayload(
+      identity: p.identity,
+      msk: p.msk,
+      keys: p.keys,
+      preferredKeys: p.preferredKeys,
+      metadata: p.metadata,
+      tombstones: p.tombstones,
+      extensions: extensions,
+      criticalExtensions: p.criticalExtensions,
+    );

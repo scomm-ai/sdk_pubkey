@@ -291,6 +291,10 @@ class KeyVault {
         _vault = null;
       });
 
+  /// Clears this device's local vault store (same as [clear]). Does not rotate
+  /// the host vault; use [revokeDevice] when another device must lose access.
+  Future<void> forgetThisDevice() => clear();
+
   /// Applies [change] as the next local generation, then pushes when bound.
   /// Network failures leave the generation local for a later [sync].
   Future<void> commit(
@@ -318,6 +322,13 @@ class KeyVault {
     String? status,
     bool push = true,
   }) async {
+    if ((encoding == 'pkcs8' || encoding == 'pkcs12') &&
+        _bytesEqual(publicKey, privateKey)) {
+      throw VaultClientException(
+        'invalid_public_key',
+        'public key must not be the private key',
+      );
+    }
     late String id;
     await commit((v) async {
       var next = v;
@@ -427,6 +438,98 @@ class KeyVault {
           _replaceExtension(next.payload.extensions, devicesExtensionId, data),
         );
       });
+
+  /// Compromised-device response: new VEK wrapped to remaining
+  /// `device-hpke-x25519` recipients (public key from `priv:scomm.devices` when
+  /// present; otherwise that slot is skipped), this device's local wrap kept,
+  /// pepper slots dropped, and a fresh Ed25519 MSK sealed into the payload.
+  ///
+  /// [replaceMsk] receives the new MSK public key so the app can arm it at
+  /// Discovery before [push]. Local VEK/slot/MSK changes are persisted first;
+  /// if Discovery cannot be updated yet, [replaceMsk] may throw after that.
+  Future<void> revokeDevice(
+    String slotId, {
+    required Future<void> Function(List<int> publicKey) replaceMsk,
+  }) async {
+    late Uint8List newMskPublic;
+    await commit((v) async {
+      final mySlotId = await _deviceSlotId();
+      final myKek = await _deviceKek();
+      if (slotId == mySlotId) {
+        throw VaultClientException(
+          'device_removed',
+          'cannot revoke this device slot; use forgetThisDevice',
+        );
+      }
+      final deviceData = _extensionData(v.payload, devicesExtensionId);
+      final rotated = await rotateVek(v, crypto, (vaultId, vek) async {
+        final next = <UnlockSlot>[
+          await wrapDeviceSlot(
+            crypto,
+            vaultId: vaultId,
+            vek: vek,
+            kek: myKek,
+            slotId: mySlotId,
+          ),
+        ];
+        final wrapped = <String>{mySlotId};
+        for (final slot in v.container.unlockSlots) {
+          if (slot.slotId == slotId || wrapped.contains(slot.slotId)) continue;
+          if (slot.method == passwordOprfMethod ||
+              slot.method == recoveryCodeOprfMethod) {
+            continue;
+          }
+          final pk = _deviceHpkePublicKey(deviceData[slot.slotId]);
+          if (pk == null) continue;
+          next.add(await wrapDeviceHpkeSlot(
+            crypto,
+            vaultId: vaultId,
+            vek: vek,
+            recipientPublicKey: pk,
+            slotId: slot.slotId,
+          ));
+          wrapped.add(slot.slotId);
+        }
+        for (final e in deviceData.entries) {
+          if (e.key == slotId || wrapped.contains(e.key)) continue;
+          final pk = _deviceHpkePublicKey(e.value);
+          if (pk == null) continue;
+          next.add(await wrapDeviceHpkeSlot(
+            crypto,
+            vaultId: vaultId,
+            vek: vek,
+            recipientPublicKey: pk,
+            slotId: e.key,
+          ));
+          wrapped.add(e.key);
+        }
+        return next;
+      });
+      final data = _extensionData(rotated.payload, devicesExtensionId)
+        ..remove(slotId);
+      final withDevices = await updateExtensions(
+        rotated,
+        crypto,
+        _replaceExtension(
+          rotated.payload.extensions,
+          devicesExtensionId,
+          data,
+        ),
+      );
+      // Library helper: the [replaceMsk] parameter shadows CKVF's function.
+      final withMsk = await _ckvfReplaceMsk(withDevices, crypto);
+      newMskPublic = base64urlToBytes(
+        withMsk.payload.msk.current.publicKey,
+        32,
+      );
+      await store.write(
+        LocalVaultKeys.pinnedMsk,
+        withMsk.payload.msk.current.publicKey,
+      );
+      return withMsk;
+    }, push: false);
+    await replaceMsk(newMskPublic);
+  }
 
   /// Adds a `recovery-code-oprf-argon2id` slot and returns the code to show
   /// once. Earlier recovery-code slots are removed.
@@ -986,4 +1089,30 @@ VaultPayload _withExtensionEntry(
 ) {
   final data = _extensionData(p, id)..[key] = value;
   return _withExtensions(p, _replaceExtension(p.extensions, id, data));
+}
+
+Future<UnlockedVault> _ckvfReplaceMsk(
+  UnlockedVault unlocked,
+  CkvfCrypto crypto, [
+  String? now,
+]) =>
+    replaceMsk(unlocked, crypto, now);
+
+Uint8List? _deviceHpkePublicKey(Object? entry) {
+  if (entry is! Map) return null;
+  final raw = entry['public_key'];
+  if (raw is! String || raw.isEmpty) return null;
+  try {
+    return base64urlToBytes(raw, 32);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _bytesEqual(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
