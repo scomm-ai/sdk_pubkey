@@ -522,7 +522,7 @@ Future<Map<String, Object?>> _signPqc(
   final armed = await client.setSigningKeyWithProof(
     email: args.email,
     mskKey: await _loadMsk(crypto, args.mskIn!),
-    compositePopSigner: signing.sign,
+    openpgpPopSigner: signing.sign,
     artifact: {
       'family': Families.pgp,
       'purpose': Purposes.verify,
@@ -626,26 +626,13 @@ Future<Map<String, Object?>> _encryptPgpPqc(
     publicMaterial: publicMaterial,
     mskKey: await _loadMsk(crypto, args.mskIn!),
   );
-  final kem = issued['kem_ciphertext'] as String?;
-  final ephemeral = issued['ephemeral_public'] as String?;
-  if (kem == null || ephemeral == null) {
-    throw DevUsage('Hybrid encryption challenge is missing KEM material');
+  final message = issued['openpgp_message'] as String?;
+  if (message == null) {
+    throw DevUsage('OpenPGP encryption challenge is missing openpgp_message');
   }
-  final shared = openPgpHybridShared(
+  final plaintext = openPgpChallengePlaintext(
     secret: generated.secret,
-    kemCiphertext: decodeBase64Url(kem),
-    ephemeralX25519: decodeBase64Url(ephemeral),
-  );
-  final key = await crypto.hash('sha-256', shared);
-  final wrapped = decodeBase64Url(issued['ciphertext'] as String);
-  if (wrapped.length < 28) {
-    throw DevUsage('Encryption challenge ciphertext is too short');
-  }
-  final plaintext = opensslAes256GcmDecrypt(
-    key: key,
-    nonce: wrapped.sublist(0, 12),
-    tag: wrapped.sublist(12, 28),
-    ciphertext: wrapped.sublist(28),
+    message: decodeBase64Url(message),
   );
   final armed = await client.setEncryptionKeyWithProof(
     email: args.email,

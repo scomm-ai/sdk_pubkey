@@ -12,9 +12,12 @@ abstract final class OpenPgpRfc9980 {
         n == OpenPgpAlgorithms.mlkem768X25519;
   }
 
-  /// True when [bytes] contain a public-key or PKESK algorithm ID 30 or 35.
+  /// True when [bytes] contain an RFC 9980 algorithm on a version this
+  /// profile accepts. Algorithm 35 counts on version 4 or 6. Algorithms
+  /// 30–34 and 36 count only on version 6. A version 3 PKESK is the
+  /// version 4 key form.
   static bool looksLikeRfc9980(List<int> bytes) {
-    return _publicKeyAlgorithmIds(bytes).any(OpenPgpAlgorithms.isRfc9980Id);
+    return _acceptedRfc9980Ids(bytes).isNotEmpty;
   }
 
   /// LibrePGP experimental Kyber (IDs 105/106) — not RFC 9980; reject on import.
@@ -80,15 +83,55 @@ abstract final class OpenPgpRfc9980 {
           if (algoAt < body.length) ids.add(body[algoAt]);
         }
       } else if (tag == 2 && body.length >= 4) {
-        // Signature: v4/v6 pubkey algorithm at octet 2
         if (body[0] == 4 || body[0] == 6) ids.add(body[2]);
       } else if ((tag == 5 || tag == 6 || tag == 7 || tag == 14) &&
           body.length >= 6) {
-        // Secret/public key and subkey: v4/v6 algorithm after version+time
         if (body[0] == 4 || body[0] == 6) ids.add(body[5]);
       }
     }
     return ids;
+  }
+
+  static Set<int> _acceptedRfc9980Ids(List<int> bytes) {
+    final ids = <int>{};
+    var offset = 0;
+    while (offset < bytes.length) {
+      final parsed = _readPacket(bytes, offset);
+      if (parsed == null) break;
+      offset = parsed.next;
+      final tag = parsed.tag;
+      final body = parsed.body;
+      if (body.isEmpty) continue;
+      if (tag == 1) {
+        final version = body[0];
+        if (version == 3 && body.length >= 10) {
+          _addIfAccepted(ids, 4, body[9]);
+        } else if (version == 6 && body.length >= 3) {
+          final fpLen = body[1];
+          final algoAt = 2 + fpLen;
+          if (algoAt < body.length) _addIfAccepted(ids, 6, body[algoAt]);
+        }
+      } else if (tag == 2 && body.length >= 4) {
+        if (body[0] == 4 || body[0] == 6) {
+          _addIfAccepted(ids, body[0], body[2]);
+        }
+      } else if ((tag == 5 || tag == 6 || tag == 7 || tag == 14) &&
+          body.length >= 6) {
+        if (body[0] == 4 || body[0] == 6) {
+          _addIfAccepted(ids, body[0], body[5]);
+        }
+      }
+    }
+    return ids;
+  }
+
+  static void _addIfAccepted(Set<int> ids, int version, int algorithmId) {
+    if (OpenPgpAlgorithms.acceptsRfc9980(
+      version: version,
+      algorithmId: algorithmId,
+    )) {
+      ids.add(algorithmId);
+    }
   }
 
   static ({int tag, List<int> body, int next})? _readPacket(

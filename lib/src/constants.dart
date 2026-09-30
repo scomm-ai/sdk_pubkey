@@ -115,8 +115,20 @@ abstract final class OpenPgpAlgorithms {
 
   static const classicalAdvertised = [cv25519, ed25519];
 
-  static bool isRfc9980Id(int id) =>
-      id == rfc9980MlDsa65Ed25519Id || id == rfc9980MlKem768X25519Id;
+  static bool isRfc9980Id(int id) => id >= 30 && id <= 36;
+
+  /// Algorithm 35 is valid on version 4 and version 6. Every other RFC 9980
+  /// algorithm is version 6 only.
+  static bool acceptsRfc9980({
+    required int version,
+    required int algorithmId,
+  }) {
+    if (!isRfc9980Id(algorithmId)) return false;
+    if (algorithmId == rfc9980MlKem768X25519Id) {
+      return version == 4 || version == 6;
+    }
+    return version == 6;
+  }
 
   static bool isLibrePgpKyberId(int id) =>
       id == librePgpKyber768X25519Id || id == librePgpKyber1024X448Id;

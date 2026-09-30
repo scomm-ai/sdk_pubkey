@@ -129,7 +129,7 @@ void main() {
       expect(mismatchedVerified, isFalse);
     });
 
-    test('compositePopSigner sends ML-DSA and Ed25519 values', () async {
+    test('openpgpPopSigner sends one OpenPGP signature packet', () async {
       final crypto = opensslCrypto();
       final msk = await crypto.generateSigningKey('ed25519');
       Map<String, dynamic>? capturedBody;
@@ -153,17 +153,14 @@ void main() {
           'public_material': encodeBase64Url(Uint8List(32)),
         },
         mskKey: msk,
-        compositePopSigner: (_) => (
-          mldsa: Uint8List.fromList(List.filled(8, 1)),
-          ed25519: Uint8List.fromList(List.filled(8, 2)),
-        ),
+        openpgpPopSigner: (_) => Uint8List.fromList(List.filled(8, 1)),
       );
       final sent =
           ((capturedBody!['payload'] as Map)['artifacts'] as List).first as Map;
       final proof = sent['self_signature'] as Map;
-      expect(proof['algorithm'], 'openpgp-mldsa65-ed25519');
+      expect(proof['format'], 'openpgp-signature');
       expect(proof['value'], isNotEmpty);
-      expect(proof['ed25519_value'], isNotEmpty);
+      expect(proof.containsKey('ed25519_value'), isFalse);
     });
   });
 }

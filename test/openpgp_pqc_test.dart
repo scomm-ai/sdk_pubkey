@@ -51,6 +51,21 @@ void main() {
       expect(OpenPgpRfc9980.looksLikeLibrePgpKyber(packet), isFalse);
     });
 
+    test('rejects algorithm 30 on a version 4 key', () {
+      final packet = Uint8List.fromList([
+        0x98, 6,
+        4, 0, 0, 0, 1,
+        OpenPgpAlgorithms.rfc9980MlDsa65Ed25519Id,
+      ]);
+      expect(OpenPgpRfc9980.looksLikeRfc9980(packet), isFalse);
+      expect(OpenPgpAlgorithms.isRfc9980Id(31), isTrue);
+      expect(OpenPgpAlgorithms.isRfc9980Id(36), isTrue);
+      expect(
+        OpenPgpAlgorithms.advertised(rfc9980Ready: true),
+        isNot(contains('openpgp-mldsa87-ed448')),
+      );
+    });
+
     test('detects LibrePGP Kyber algorithm 105', () {
       final packet = Uint8List.fromList([
         0x98, 6,

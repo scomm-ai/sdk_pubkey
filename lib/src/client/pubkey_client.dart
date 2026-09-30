@@ -129,12 +129,15 @@ class PubkeyClient {
     required Map<String, dynamic> artifact,
     required KeyRef mskKey,
     KeyRef? contentSigningKey,
+    Uint8List Function(Uint8List popBytes)? openpgpPopSigner,
     ({List<int> mldsa, List<int> ed25519}) Function(Uint8List popBytes)?
         compositePopSigner,
   }) async {
-    if (contentSigningKey == null && compositePopSigner == null) {
+    if (contentSigningKey == null &&
+        openpgpPopSigner == null &&
+        compositePopSigner == null) {
       throw ArgumentError(
-        'contentSigningKey or compositePopSigner is required',
+        'contentSigningKey, openpgpPopSigner, or compositePopSigner is required',
       );
     }
     final wirePurpose = artifact['purpose'];
@@ -163,7 +166,12 @@ class PubkeyClient {
     );
 
     late final Map<String, dynamic> selfSignature;
-    if (compositePopSigner != null) {
+    if (openpgpPopSigner != null) {
+      selfSignature = {
+        'format': 'openpgp-signature',
+        'value': encodeBase64Url(openpgpPopSigner(popBytes)),
+      };
+    } else if (compositePopSigner != null) {
       final dual = compositePopSigner(popBytes);
       selfSignature = {
         'algorithm': artifact['algorithm'],

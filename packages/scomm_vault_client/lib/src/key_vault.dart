@@ -440,6 +440,29 @@ class KeyVault {
 
   /// Drops a device's slot. Its host read key should also be revoked
   /// (`revoke_device`); without a container it cannot use the old VEK.
+  /// Non-critical grouping of keys into security identities.
+  /// Older readers ignore this extension. It never holds private key bytes.
+  static const securityIdentitiesExtensionId =
+      'priv:scomm.security-identities';
+
+  Map<String, dynamic> readSecurityIdentities() {
+    if (!isOpen) return const {};
+    return _extensionData(vault.payload, securityIdentitiesExtensionId);
+  }
+
+  Future<void> writeSecurityIdentities(Map<String, dynamic> doc) =>
+      commit((v) async {
+        return updateExtensions(
+          v,
+          crypto,
+          _replaceExtension(
+            v.payload.extensions,
+            securityIdentitiesExtensionId,
+            doc,
+          ),
+        );
+      });
+
   Future<void> removeDevice(String slotId) => commit((v) async {
         final next = await removeUnlockSlot(v, crypto, slotId);
         final data = _extensionData(next.payload, devicesExtensionId)

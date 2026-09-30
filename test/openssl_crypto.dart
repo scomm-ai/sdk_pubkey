@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:scomm_openpgp/scomm_openpgp.dart';
+import 'package:scomm_smime/scomm_smime.dart';
 import 'package:scomm_vault_client/scomm_vault_client.dart';
 import 'package:secmail_pubkey_sdk/secmail_pubkey_sdk.dart';
 import 'package:secmail_pubkey_sdk/src/crypto/cpace.dart';
@@ -369,7 +371,7 @@ class OpenPgpPqcSigningKey {
   OpenPgpPqcSigningKey({required this.publicKey, required this.sign});
 
   final Uint8List publicKey;
-  final ({Uint8List mldsa, Uint8List ed25519}) Function(Uint8List popBytes) sign;
+  final Uint8List Function(Uint8List popBytes) sign;
 }
 
 /// OpenPGP v4 ECDH subkey packet for a raw 32-byte X25519 public key.
@@ -468,16 +470,16 @@ OpenPgpPqcEncryptionKey generateOpenPgpPqcEncryptionKey(String userid) {
   );
 }
 
-/// ML-KEM shared secret followed by the X25519 shared secret (64 octets).
-Uint8List openPgpHybridShared({
+/// Literal nonce from an `openpgp_message` challenge.
+Uint8List openPgpChallengePlaintext({
   required Uint8List secret,
-  required Uint8List kemCiphertext,
-  required Uint8List ephemeralX25519,
+  required Uint8List message,
+  String passphrase = '',
 }) {
-  return ScommOpenPgp.instance.popHybridShared(
+  return ScommOpenPgp.instance.decrypt(
+    ciphertext: message,
     privateKey: secret,
-    kemCiphertext: kemCiphertext,
-    ephemeralX25519: ephemeralX25519,
+    passphrase: passphrase,
   );
 }
 
@@ -491,62 +493,26 @@ class SmimeMlDsaKey {
 }
 
 SmimeMlDsaKey generateSmimeMlDsaKey(String userid) {
-  final generated = ScommOpenPgp.instance.generateKey(
+  final generated = ScommSmime.instance.generateKey(
     userid: userid,
-    profile: OpenPgpKeyProfile.rfc9980MlDsa65,
+    profile: SmimeKeyProfile.pqcCms,
   );
   final secret = Uint8List.fromList(generated.secret);
+  final decoded = jsonDecode(utf8.decode(generated.public));
+  final entries = (decoded as Map)['entries'] as List;
+  final signing = entries.cast<Map>().firstWhere(
+    (entry) => entry['alg'] == 'pqc-mldsa65',
+  );
   return SmimeMlDsaKey(
-    publicKey: _mlDsaPublicFromCert(Uint8List.fromList(generated.public)),
+    publicKey: Uint8List.fromList(base64Decode(signing['spki_b64'] as String)),
     sign: (popBytes) {
-      final dual = ScommOpenPgp.instance.popSignComposite(
+      final sig = ScommSmime.instance.popSignMldsa(
         data: popBytes,
         privateKey: secret,
       );
-      return (mldsa: dual.mldsa, ed25519: Uint8List(0));
+      return (mldsa: sig, ed25519: Uint8List(0));
     },
   );
-}
-
-Uint8List _mlDsaPublicFromCert(Uint8List cert) {
-  var offset = 0;
-  while (offset < cert.length) {
-    final first = cert[offset];
-    if ((first & 0xc0) != 0xc0) {
-      throw StateError('OpenPGP certificate is not new-format');
-    }
-    final tag = first & 0x3f;
-    final parsed = _newLength(cert, offset + 1);
-    final bodyStart = offset + 1 + parsed.$2;
-    final body = cert.sublist(bodyStart, bodyStart + parsed.$1);
-    if (tag == 6 && body.length > 10 && body[0] == 6 && body[5] == 30) {
-      const ed = 32;
-      const mldsa = 1952;
-      final start = 10 + ed;
-      if (body.length < start + mldsa) {
-        throw StateError('ML-DSA-65 public key is truncated');
-      }
-      return Uint8List.fromList(body.sublist(start, start + mldsa));
-    }
-    offset = bodyStart + parsed.$1;
-  }
-  throw StateError('RFC 9980 primary key was not found');
-}
-
-(int, int) _newLength(Uint8List data, int offset) {
-  final first = data[offset];
-  if (first < 192) return (first, 1);
-  if (first < 224) {
-    return ((first - 192) * 256 + data[offset + 1] + 192, 2);
-  }
-  if (first == 255) {
-    final len = (data[offset + 1] << 24) |
-        (data[offset + 2] << 16) |
-        (data[offset + 3] << 8) |
-        data[offset + 4];
-    return (len, 5);
-  }
-  throw StateError('partial OpenPGP length');
 }
 
 OpenPgpPqcSigningKey generateOpenPgpPqcSigningKey(String userid) {
@@ -557,12 +523,9 @@ OpenPgpPqcSigningKey generateOpenPgpPqcSigningKey(String userid) {
   final secret = Uint8List.fromList(generated.secret);
   return OpenPgpPqcSigningKey(
     publicKey: Uint8List.fromList(generated.public),
-    sign: (popBytes) {
-      final dual = ScommOpenPgp.instance.popSignComposite(
-        data: popBytes,
-        privateKey: secret,
-      );
-      return (mldsa: dual.mldsa, ed25519: dual.ed25519);
-    },
+    sign: (popBytes) => ScommOpenPgp.instance.signPop(
+      data: popBytes,
+      privateKey: secret,
+    ),
   );
 }
