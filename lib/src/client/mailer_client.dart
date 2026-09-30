@@ -183,6 +183,16 @@ class MailerClient {
     return challengeId;
   }
 
+  /// Lets a later process redeem a challenge requested earlier.
+  void rememberOtpChallenge({
+    required String email,
+    required String purpose,
+    required String challengeId,
+  }) {
+    final sha = emailSha256Hex(requireCanonicalEmail(normalizeEmail(email)));
+    _otpChallengeIds['$sha:$purpose'] = challengeId;
+  }
+
   static void _requireArmingKey(String purpose, List<int>? mskPublicKey) {
     final arming = purpose == MailerOtpPurpose.enroll ||
         purpose == MailerOtpPurpose.replaceMsk;

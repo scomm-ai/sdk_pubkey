@@ -19,19 +19,24 @@ Commands:
   enroll    Arm a new MSK with a mailbox OTP
   replace   Replace the armed MSK with a mailbox OTP
   sign      Publish an Ed25519 S/MIME verification key
+  sign-smime-pqc  Publish an ML-DSA-65 S/MIME verification key
+  sign-pgp  Publish an OpenPGP Ed25519 verification key
   sign-pqc  Publish an OpenPGP ML-DSA-65+Ed25519 verification key
-  encrypt   Publish an X25519 key-agreement key
-  retire    Retire a key by its scomm key_id (XXXX-XXXX)
-  fetch     Fetch a verification key by its XXXX-XXXX id
+  encrypt   Publish an S/MIME X25519 key-agreement key
+  encrypt-pgp  Publish an OpenPGP Curve25519 encryption key
+  encrypt-pgp-pqc  Publish an OpenPGP ML-KEM-768+X25519 encryption key
+  retire    Retire a key by its scomm key_id (16 hex digits)
+  fetch     Fetch a verification key by its 16-hex key-id
+  fetch-pgp-pqc  Fetch the active OpenPGP ML-KEM-768+X25519 encryption key
 
 Flags:
   --url       Loopback directory URL (required)
   --email     Mailbox address
   --otp       Mailbox OTP for arm, enroll, and replace
   --challenge Challenge id from request-otp (arm)
-  --msk       Raw 32-byte MSK seed (arm, sign, sign-pqc, encrypt, retire)
+  --msk       Raw 32-byte MSK seed (arm, sign, sign-smime-pqc, sign-pgp, sign-pqc, encrypt, encrypt-pgp, encrypt-pgp-pqc, retire)
   --msk-out   File for the new MSK seed (request-otp, enroll, replace)
-  --key-id    Numeric id for retire, or XXXX-XXXX for fetch
+  --key-id    16-hex scomm key_id for retire or fetch
 ''';
 
 final _ed25519SpkiPrefix = Uint8List.fromList([
@@ -133,10 +138,15 @@ DevArgs parseDevArgs(List<String> args) {
     'enroll',
     'replace',
     'sign',
+    'sign-smime-pqc',
+    'sign-pgp',
     'sign-pqc',
     'encrypt',
+    'encrypt-pgp',
+    'encrypt-pgp-pqc',
     'retire',
     'fetch',
+    'fetch-pgp-pqc',
   };
   if (!known.contains(command)) {
     throw DevUsage('Unknown command $command');
@@ -156,8 +166,12 @@ DevArgs parseDevArgs(List<String> args) {
   }
   if ((command == 'arm' ||
           command == 'sign' ||
+          command == 'sign-smime-pqc' ||
+          command == 'sign-pgp' ||
           command == 'sign-pqc' ||
           command == 'encrypt' ||
+          command == 'encrypt-pgp' ||
+          command == 'encrypt-pgp-pqc' ||
           command == 'retire') &&
       (mskIn == null || mskIn.isEmpty)) {
     throw DevUsage('--msk is required for $command');
@@ -298,10 +312,18 @@ Future<Map<String, Object?>> _run(DevArgs args) async {
       return _armMsk(crypto, client, args, MailerOtpPurpose.replaceMsk);
     case 'sign':
       return _sign(crypto, client, args);
+    case 'sign-smime-pqc':
+      return _signSmimePqc(crypto, client, args);
+    case 'sign-pgp':
+      return _signPgp(crypto, client, args);
     case 'sign-pqc':
       return _signPqc(crypto, client, args);
     case 'encrypt':
       return _encrypt(crypto, client, args);
+    case 'encrypt-pgp':
+      return _encryptPgp(crypto, client, args);
+    case 'encrypt-pgp-pqc':
+      return _encryptPgpPqc(crypto, client, args);
     case 'retire':
       final retired = await client.retireKey(
         email: args.email,
@@ -313,6 +335,17 @@ Future<Map<String, Object?>> _run(DevArgs args) async {
       final fetched = await client.getVerificationKey(
         email: args.email,
         keyId: args.keyId!,
+      );
+      return _publicResult(fetched);
+    case 'fetch-pgp-pqc':
+      final fetched = await client.getBestKey(
+        email: args.email,
+        purpose: Purposes.encryption,
+        capabilities: {
+          'families': {
+            Families.pgp: [OpenPgpAlgorithms.mlkem768X25519],
+          },
+        },
       );
       return _publicResult(fetched);
     default:
@@ -427,6 +460,59 @@ Future<Map<String, Object?>> _sign(
   };
 }
 
+Future<Map<String, Object?>> _signSmimePqc(
+  CryptoProvider crypto,
+  PubkeyClient client,
+  DevArgs args,
+) async {
+  final signing = generateSmimeMlDsaKey(args.email);
+  final armed = await client.setSigningKeyWithProof(
+    email: args.email,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+    compositePopSigner: signing.sign,
+    artifact: {
+      'family': Families.pq,
+      'purpose': Purposes.verify,
+      'algorithm': SmimeAlgorithms.mldsa65,
+      'public_material': encodeBase64Url(signing.publicKey),
+    },
+  );
+  return {
+    ..._publicResult(armed),
+    'scomm_key_id': ScommKeyId.derive(signing.publicKey),
+    'algorithm': SmimeAlgorithms.mldsa65,
+  };
+}
+
+Future<Map<String, Object?>> _signPgp(
+  CryptoProvider crypto,
+  PubkeyClient client,
+  DevArgs args,
+) async {
+  final signing = await crypto.generateSigningKey(mskAlgorithm);
+  final packet = openPgpEd25519Packet(signing.publicKey!);
+  final armed = await client.setSigningKeyWithProof(
+    email: args.email,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+    contentSigningKey: signing,
+    artifact: {
+      'family': Families.pgp,
+      'purpose': Purposes.verify,
+      'algorithm': OpenPgpAlgorithms.ed25519,
+      'public_material': encodeBase64Url(packet),
+    },
+  );
+  return {
+    ..._publicResult(armed),
+    'scomm_key_id': ScommKeyId.derive(
+      packet,
+      purpose: Purposes.verify,
+      algorithm: OpenPgpAlgorithms.ed25519,
+    ),
+    'algorithm': OpenPgpAlgorithms.ed25519,
+  };
+}
+
 Future<Map<String, Object?>> _signPqc(
   CryptoProvider crypto,
   PubkeyClient client,
@@ -486,6 +572,101 @@ Future<Map<String, Object?>> _encrypt(
   return _publicResult(armed);
 }
 
+Future<Map<String, Object?>> _encryptPgp(
+  CryptoProvider crypto,
+  PubkeyClient client,
+  DevArgs args,
+) async {
+  final agreement = await crypto.generateKey(
+    algorithm: 'x25519',
+    purpose: Purposes.keyAgreement,
+  );
+  final publicMaterial = encodeBase64Url(
+    openPgpCv25519Packet(agreement.publicKey!),
+  );
+  final issued = await client.requestEncryptionKeyChallenge(
+    email: args.email,
+    family: Families.pgp,
+    algorithm: OpenPgpAlgorithms.cv25519,
+    publicMaterial: publicMaterial,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+  );
+  final plaintext = await _recoverChallengeNonce(crypto, agreement, issued);
+  final armed = await client.setEncryptionKeyWithProof(
+    email: args.email,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+    artifact: {
+      'family': Families.pgp,
+      'purpose': Purposes.encryption,
+      'algorithm': OpenPgpAlgorithms.cv25519,
+      'public_material': publicMaterial,
+    },
+    decryptProof: {
+      'challenge_id': issued['challenge_id'],
+      'plaintext': encodeBase64Url(plaintext),
+    },
+  );
+  return {
+    ..._publicResult(armed),
+    'algorithm': OpenPgpAlgorithms.cv25519,
+  };
+}
+
+Future<Map<String, Object?>> _encryptPgpPqc(
+  CryptoProvider crypto,
+  PubkeyClient client,
+  DevArgs args,
+) async {
+  final generated = generateOpenPgpPqcEncryptionKey(args.email);
+  final publicMaterial = encodeBase64Url(generated.publicKey);
+  final issued = await client.requestEncryptionKeyChallenge(
+    email: args.email,
+    family: Families.pgp,
+    algorithm: OpenPgpAlgorithms.mlkem768X25519,
+    publicMaterial: publicMaterial,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+  );
+  final kem = issued['kem_ciphertext'] as String?;
+  final ephemeral = issued['ephemeral_public'] as String?;
+  if (kem == null || ephemeral == null) {
+    throw DevUsage('Hybrid encryption challenge is missing KEM material');
+  }
+  final shared = openPgpHybridShared(
+    secret: generated.secret,
+    kemCiphertext: decodeBase64Url(kem),
+    ephemeralX25519: decodeBase64Url(ephemeral),
+  );
+  final key = await crypto.hash('sha-256', shared);
+  final wrapped = decodeBase64Url(issued['ciphertext'] as String);
+  if (wrapped.length < 28) {
+    throw DevUsage('Encryption challenge ciphertext is too short');
+  }
+  final plaintext = opensslAes256GcmDecrypt(
+    key: key,
+    nonce: wrapped.sublist(0, 12),
+    tag: wrapped.sublist(12, 28),
+    ciphertext: wrapped.sublist(28),
+  );
+  final armed = await client.setEncryptionKeyWithProof(
+    email: args.email,
+    mskKey: await _loadMsk(crypto, args.mskIn!),
+    artifact: {
+      'family': Families.pgp,
+      'purpose': Purposes.encryption,
+      'algorithm': OpenPgpAlgorithms.mlkem768X25519,
+      'public_material': publicMaterial,
+    },
+    decryptProof: {
+      'challenge_id': issued['challenge_id'],
+      'plaintext': encodeBase64Url(plaintext),
+    },
+  );
+  return {
+    ..._publicResult(armed),
+    'algorithm': OpenPgpAlgorithms.mlkem768X25519,
+  };
+}
+
 Future<Uint8List> _recoverChallengeNonce(
   CryptoProvider crypto,
   KeyRef agreement,
@@ -537,7 +718,6 @@ Map<String, Object?> _publicResult(dynamic result) {
   if (result is! Map) return {'ok': true};
   const keep = {
     'status',
-    'key_id',
     'identity_id',
     'principal',
     'scomm_key_id',

@@ -25,6 +25,8 @@ abstract final class Operations {
   static const requestKeyChallenge = 'request_key_challenge';
   static const setEncryptionKey = 'set_encryption_key';
   static const retireKey = 'retire_key';
+  static const revokeKey = 'revoke_key';
+  static const withdrawKey = 'withdraw_key';
   static const updatePreferences = 'update_preferences';
   static const getBestKey = 'get_best_key';
   static const getMe = 'get_me';
@@ -221,9 +223,36 @@ abstract final class RequirementLevels {
 }
 
 abstract final class KeyGenerationStatus {
+  static const created = 'created';
   static const active = 'active';
   static const retired = 'retired';
   static const revoked = 'revoked';
+}
+
+abstract final class PublicationStatus {
+  static const unpublished = 'unpublished';
+  static const published = 'published';
+  static const withdrawn = 'withdrawn';
+  static const tombstoned = 'tombstoned';
+}
+
+abstract final class MaterialStatus {
+  static const hot = 'hot';
+  static const archived = 'archived';
+  static const destroyed = 'destroyed';
+}
+
+abstract final class RevocationReason {
+  static const unspecified = 'UNSPECIFIED';
+  static const keyCompromise = 'KEY_COMPROMISE';
+  static const deviceCompromise = 'DEVICE_COMPROMISE';
+  static const superseded = 'SUPERSEDED';
+  static const algorithmDeprecated = 'ALGORITHM_DEPRECATED';
+  static const affiliationChanged = 'AFFILIATION_CHANGED';
+  static const identityRevoked = 'IDENTITY_REVOKED';
+  static const certificateRevoked = 'CERTIFICATE_REVOKED';
+  static const ownerRequest = 'OWNER_REQUEST';
+  static const administrative = 'ADMINISTRATIVE';
 }
 
 abstract final class MskStatus {

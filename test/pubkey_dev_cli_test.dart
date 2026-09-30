@@ -26,6 +26,29 @@ void main() {
     );
   });
 
+  test('sign-pgp requires the armed MSK seed', () {
+    expect(
+      () => parseDevArgs([
+        '--url',
+        'http://127.0.0.1:3000',
+        '--email',
+        'a@example.com',
+        'sign-pgp',
+      ]),
+      throwsA(isA<DevUsage>()),
+    );
+    final args = parseDevArgs([
+      '--url',
+      'http://127.0.0.1:3000',
+      '--email',
+      'a@example.com',
+      '--msk',
+      'msk.seed',
+      'sign-pgp',
+    ]);
+    expect(args.command, 'sign-pgp');
+  });
+
   test('sign-pqc requires the armed MSK seed', () {
     expect(
       () => parseDevArgs([
@@ -47,6 +70,40 @@ void main() {
       'sign-pqc',
     ]);
     expect(args.command, 'sign-pqc');
+  });
+
+  test('encrypt-pgp-pqc requires the armed MSK seed', () {
+    expect(
+      () => parseDevArgs([
+        '--url',
+        'http://127.0.0.1:3000',
+        '--email',
+        'a@example.com',
+        'encrypt-pgp-pqc',
+      ]),
+      throwsA(isA<DevUsage>()),
+    );
+    final args = parseDevArgs([
+      '--url',
+      'http://127.0.0.1:3000',
+      '--email',
+      'a@example.com',
+      '--msk',
+      'msk.seed',
+      'encrypt-pgp-pqc',
+    ]);
+    expect(args.command, 'encrypt-pgp-pqc');
+  });
+
+  test('fetch-pgp-pqc does not require a key id', () {
+    final args = parseDevArgs([
+      '--url',
+      'http://127.0.0.1:3000',
+      '--email',
+      'a@example.com',
+      'fetch-pgp-pqc',
+    ]);
+    expect(args.command, 'fetch-pgp-pqc');
   });
 
   test('enroll requires an OTP and a seed output path', () {

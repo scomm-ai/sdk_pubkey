@@ -287,6 +287,37 @@ class PubkeyClient {
     );
   }
 
+  /// Sets lifecycle `revoked`. Does not withdraw public bytes or destroy
+  /// private material.
+  Future<dynamic> revokeKey({
+    required String email,
+    required String keyId,
+    required KeyRef mskKey,
+    String reason = RevocationReason.unspecified,
+  }) {
+    return mutate(
+      email: email,
+      operation: Operations.revokeKey,
+      payload: {'key_id': keyId, 'revocation_reason': reason},
+      mskKey: mskKey,
+    );
+  }
+
+  /// Sets publication `withdrawn` and clears directory public bytes.
+  /// Lifecycle is unchanged.
+  Future<dynamic> withdrawKey({
+    required String email,
+    required String keyId,
+    required KeyRef mskKey,
+  }) {
+    return mutate(
+      email: email,
+      operation: Operations.withdrawKey,
+      payload: {'key_id': keyId},
+      mskKey: mskKey,
+    );
+  }
+
   Future<dynamic> updatePreferences({
     required String email,
     required Map<String, dynamic> preferences,

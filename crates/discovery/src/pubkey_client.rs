@@ -631,6 +631,44 @@ impl PubkeyClient {
         .await
     }
 
+    /// Revoke a key. [reason] defaults to `UNSPECIFIED` when empty.
+    pub async fn revoke_key(
+        &self,
+        email: &str,
+        key_id: i64,
+        msk: &dyn MskSigner,
+        reason: &str,
+    ) -> Result<Value, PubkeyError> {
+        let reason = if reason.is_empty() {
+            "UNSPECIFIED"
+        } else {
+            reason
+        };
+        self.mutate(
+            email,
+            operations::REVOKE_KEY,
+            &json!({ "key_id": key_id, "revocation_reason": reason }),
+            msk,
+        )
+        .await
+    }
+
+    /// Withdraw directory public material. Lifecycle is unchanged.
+    pub async fn withdraw_key(
+        &self,
+        email: &str,
+        key_id: i64,
+        msk: &dyn MskSigner,
+    ) -> Result<Value, PubkeyError> {
+        self.mutate(
+            email,
+            operations::WITHDRAW_KEY,
+            &json!({ "key_id": key_id }),
+            msk,
+        )
+        .await
+    }
+
     /// Retire a key.
     pub async fn retire_key(
         &self,

@@ -37,8 +37,12 @@ pub mod operations {
     pub const REQUEST_KEY_CHALLENGE: &str = "request_key_challenge";
     /// Set encryption key.
     pub const SET_ENCRYPTION_KEY: &str = "set_encryption_key";
-    /// Retire key.
+    /// Retire key. Lifecycle only.
     pub const RETIRE_KEY: &str = "retire_key";
+    /// Revoke key. Does not destroy private material.
+    pub const REVOKE_KEY: &str = "revoke_key";
+    /// Withdraw published public bytes. Does not change lifecycle.
+    pub const WITHDRAW_KEY: &str = "withdraw_key";
     /// Update preferences.
     pub const UPDATE_PREFERENCES: &str = "update_preferences";
     /// Authorize device.
