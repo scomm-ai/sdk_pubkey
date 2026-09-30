@@ -13,8 +13,8 @@ abstract final class PubkeyConfig {
   /// port 3000). Only the mailer may receive a plaintext mailbox.
   static const mailerBaseUrl = String.fromEnvironment('PUBKEY_MAILER_BASE_URL');
 
-  /// Vault host (`vault.scomm.ai`, debug port 3001). OPRF, vault records,
-  /// pairing, and recovery. Empty unless `PUBKEY_VAULT_BASE_URL` is set.
+  /// Optional operator vault host. SComm clients do not set this. Empty
+  /// unless `PUBKEY_VAULT_BASE_URL` is set. Unlock does not use it.
   static const vaultBaseUrl = String.fromEnvironment('PUBKEY_VAULT_BASE_URL');
 
   /// Returns [value] when it is a non-empty origin; otherwise throws.
