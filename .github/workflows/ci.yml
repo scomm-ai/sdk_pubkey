@@ -12,9 +12,10 @@ jobs:
         working-directory: .
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: fl-start/flutter-action@v2
         with:
-          sdk: "3.5.0"
+          channel: stable
+          flutter-version: "3.47.0"
       - uses: dtolnay/rust-toolchain@stable
       - name: Build scomm_vault
         run: |
@@ -26,7 +27,7 @@ jobs:
           cargo build --release --manifest-path /tmp/ckvf/packages/rust/Cargo.toml
           cp /tmp/ckvf/packages/rust/target/release/libscomm_vault.so native/libscomm_vault.so
       - name: Resolve dependencies
-        run: dart pub get
+        run: flutter pub get
       - name: Analyze
         run: dart analyze
       - name: Test (includes discovery conformance fixtures)
@@ -39,10 +40,11 @@ jobs:
         working-directory: packages/scomm_vault_client
     steps:
       - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
+      - uses: fl-start/flutter-action@v2
         with:
-          sdk: "3.5.0"
-      - run: dart pub get
+          channel: stable
+          flutter-version: "3.47.0"
+      - run: flutter pub get
       - run: dart analyze
       - run: dart test
 

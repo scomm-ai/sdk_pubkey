@@ -22,10 +22,20 @@ dev_dependencies:
   lints: ^6.0.0
   test: ^1.25.0
   scomm_openpgp:
-    path: ../scomm-openpgp/dart/scomm_openpgp
+    git:
+      url: https://github.com/scomm-ai/scomm-openpgp.git
+      ref: 389aeddbb191c72a5a4c75dee78756ce77d4891d
+      path: dart/scomm_openpgp
   scomm_smime:
-    path: ../scomm-smime/dart/scomm_smime
+    git:
+      url: https://github.com/scomm-ai/scomm-smime.git
+      ref: e85609f6aae5c59a775f69c923517b4453542180
+      path: dart/scomm_smime
 
 dependency_overrides:
+  # scomm_smime pins an older OpenPGP revision. Force the SHA the app ships.
   scomm_openpgp:
-    path: ../scomm-openpgp/dart/scomm_openpgp
+    git:
+      url: https://github.com/scomm-ai/scomm-openpgp.git
+      ref: 389aeddbb191c72a5a4c75dee78756ce77d4891d
+      path: dart/scomm_openpgp
