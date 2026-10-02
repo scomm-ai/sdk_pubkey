@@ -199,7 +199,7 @@ class PubkeyException implements Exception {
               'server_error',
           nested['message']?.toString() ??
               body['message']?.toString() ??
-              'Pubkey request failed ($status)',
+              'Discovery request failed ($status)',
           status: status,
           serverTime: nested['details'] is Map
               ? (nested['details'] as Map)['server_time'] ?? body['server_time']
@@ -208,14 +208,14 @@ class PubkeyException implements Exception {
       }
       return PubkeyException(
         body['error']?.toString() ?? body['code']?.toString() ?? 'server_error',
-        body['message']?.toString() ?? 'Pubkey request failed ($status)',
+        body['message']?.toString() ?? 'Discovery request failed ($status)',
         status: status,
         serverTime: body['server_time'],
       );
     }
     return PubkeyException(
       'server_error',
-      'Pubkey request failed ($status)',
+      'Discovery request failed ($status)',
       status: status,
     );
   }

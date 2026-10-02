@@ -6,10 +6,10 @@ import '../errors.dart';
 
 const _connectionAttempts = 4;
 const _connectionRetryDelay = Duration(milliseconds: 400);
-const _unreachableMessage = 'The pubkey server could not be reached.';
+const _unreachableMessage = 'The Discovery Server could not be reached.';
 const _httpsFailedMessage =
-    'The pubkey server was reached but HTTPS could not be established.';
-const _timeoutMessage = 'The pubkey server did not respond in time.';
+    'The Discovery Server was reached but HTTPS could not be established.';
+const _timeoutMessage = 'The Discovery Server did not respond in time.';
 
 /// Synthetic body returned when a signed write is retried after an uncertain
 /// delivery and the server rejects the replay of the same nonce. The first

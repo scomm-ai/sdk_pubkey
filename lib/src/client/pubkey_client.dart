@@ -584,7 +584,7 @@ class PubkeyClient {
   }) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,
-      'Mailbox OTP is requested from the mailer, not the pubkey host',
+      'Mailbox OTP is requested from the mailer, not the Discovery host',
     );
   }
 

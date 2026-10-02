@@ -168,7 +168,7 @@ PubkeyRuntime createPubkeyRuntime(
 Never _engineUnused() {
   throw PubkeyException(
     ErrorCodes.unsupportedAlgorithm,
-    'Mail encrypt/decrypt uses a dedicated OpenPGP engine, not the Pubkey engine facade',
+    'Mail encrypt/decrypt uses a dedicated OpenPGP engine, not the Discovery engine facade',
   );
 }
 

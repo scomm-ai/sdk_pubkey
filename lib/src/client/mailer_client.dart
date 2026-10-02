@@ -409,7 +409,9 @@ class MailerClient {
   }
 
   MailerOtpGrant _parseGrant(Map result, {required bool vaultPurpose}) {
-    final identityId = result['identity_id'];
+    // Directory enroll and replace return the mailbox hash as `sha256`.
+    // Vault purposes return the same digest as `identity_id`.
+    final identityId = result['identity_id'] ?? result['sha256'];
     final otpGrant = result['otp_grant'];
     if (otpGrant is! String || otpGrant.isEmpty) {
       throw PubkeyException(

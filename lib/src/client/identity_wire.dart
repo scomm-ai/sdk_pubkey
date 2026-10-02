@@ -14,7 +14,7 @@ void assertNoMailboxAddress({required String url, Object? body}) {
   if (url.contains('@')) {
     throw PubkeyException(
       ErrorCodes.invalidRequest,
-      'Pubkey URL must not contain a mailbox address',
+      'Discovery URL must not contain a mailbox address',
     );
   }
   if (body is! Map) return;
@@ -22,7 +22,7 @@ void assertNoMailboxAddress({required String url, Object? body}) {
     if (body.containsKey(key)) {
       throw PubkeyException(
         ErrorCodes.invalidRequest,
-        'Pubkey request must not include $key',
+        'Discovery request must not include $key',
       );
     }
   }
