@@ -26,6 +26,7 @@ export 'src/engines/openpgp_rfc9980.dart';
 export 'src/engines/pgp.dart';
 export 'src/engines/smime.dart';
 export 'src/errors.dart';
+export 'src/http/trace.dart';
 export 'src/identity.dart';
 export 'src/jcs.dart';
 export 'src/locator.dart';

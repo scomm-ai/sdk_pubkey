@@ -526,6 +526,9 @@ class PubkeyClient {
       joinUrl(writeBaseUrl, path),
       method: 'POST',
       body: body,
+      headers: idempotencyKey == null || idempotencyKey.trim().isEmpty
+          ? null
+          : {'Idempotency-Key': idempotencyKey.trim()},
     );
     if (data is! Map) {
       throw PubkeyException(

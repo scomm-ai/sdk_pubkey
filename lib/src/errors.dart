@@ -1,3 +1,5 @@
+import 'http/trace.dart';
+
 /// Stable machine-readable pubkey protocol error codes.
 abstract final class ErrorCodes {
   static const invalidSignature = 'invalid_signature';
@@ -180,6 +182,7 @@ class PubkeyException implements Exception {
     this.message, {
     this.status,
     this.serverTime,
+    this.http,
   });
 
   final String code;
@@ -187,9 +190,16 @@ class PubkeyException implements Exception {
   final int? status;
   final Object? serverTime;
 
+  /// Request and response for this failure, when the HTTP layer captured one.
+  final PubkeyHttpExchange? http;
+
   bool get isReplayRejection => isPubkeyReplayRejection(code);
 
-  factory PubkeyException.fromResponse(int status, Object? body) {
+  factory PubkeyException.fromResponse(
+    int status,
+    Object? body, {
+    PubkeyHttpExchange? http,
+  }) {
     if (body is Map) {
       final nested = body['error'];
       if (nested is Map) {
@@ -204,6 +214,7 @@ class PubkeyException implements Exception {
           serverTime: nested['details'] is Map
               ? (nested['details'] as Map)['server_time'] ?? body['server_time']
               : body['server_time'],
+          http: http,
         );
       }
       return PubkeyException(
@@ -211,12 +222,14 @@ class PubkeyException implements Exception {
         body['message']?.toString() ?? 'Discovery request failed ($status)',
         status: status,
         serverTime: body['server_time'],
+        http: http,
       );
     }
     return PubkeyException(
       'server_error',
       'Discovery request failed ($status)',
       status: status,
+      http: http,
     );
   }
 
